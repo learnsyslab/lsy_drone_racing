@@ -32,38 +32,44 @@ logger = logging.getLogger(__name__)
 
 def simulate(
     config: str = "multi_level0.toml",
-    controller: str | None = None,
+    controllers: str | None = None,
     n_runs: int = 1,
-    gui: bool | None = None,
+    render: bool | None = None,
 ) -> list[float]:
     """Evaluate the drone controller over multiple episodes.
 
     Args:
         config: The path to the configuration file. Assumes the file is in `config/`.
-        controller: The name of the controller file in `lsy_drone_racing/control/` or None. If None,
-            the controller specified in the config file is used.
+        controllers: Comma-separated controller filenames in `lsy_drone_racing/control/` or None.
+            If None, the controllers specified in the config file are used.
         n_runs: The number of episodes.
-        gui: Enable/disable the simulation GUI.
+        render: Enable/disable the simulation GUI.
 
     Returns:
         A list of episode times.
     """
     # Load configuration and check if firmare should be used.
     config = load_config(Path(__file__).parents[1] / "config" / config)
-    if gui is None:
-        gui = config.sim.gui
+    if render is None:
+        render = config.sim.render
     else:
-        config.sim.gui = gui
+        config.sim.render = render
     logger.warning(
         "The simulation currently only supports running with one controller type and one set of "
         "environment parameters (i.e. frequencies, control mode etc.). Only using the settings for "
         "the first drone."
     )
-    # Load the controller module
-    if controller is None:
-        controller = config.controller[0]["file"]
-    controller_path = Path(__file__).parents[1] / "lsy_drone_racing/control" / controller
-    controller_cls = load_controller(controller_path)  # This returns a class, not an instance
+    # Load the controller modules
+    control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
+    if controllers is None:
+        controllers = [controller["file"] for controller in config.controller]
+    else:
+        controllers = [controller.strip() for controller in controllers.split(",")]
+
+    controller_classes = [
+        load_controller(control_path / controller) for controller in controllers
+    ]  # This returns a list of classes, not a list of instances
+
     # Create the racing environment
     env: MultiDroneRacingEnv = gymnasium.make(
         "MultiDroneRacing-v0",
@@ -81,28 +87,44 @@ def simulate(
     # rely on this.
     config.env.freq = config.env.kwargs[0]["freq"]
     env = JaxToNumpy(env)
-    n_drones, n_worlds = env.unwrapped.sim.n_drones, env.unwrapped.sim.n_worlds
+    n_drones = env.unwrapped.sim.n_drones
 
-    for _ in range(n_runs):  # Run n_runs episodes with the controller
+    for _ in range(n_runs):  # Run n_runs episodes with the controllers
         obs, info = env.reset()
-        controller: Controller = controller_cls(obs, info, config)
+        controllers: list[Controller] = [
+            cls(obs, _info_with_rank(info, rank), config)
+            for rank, cls in enumerate(controller_classes)
+        ]
+        finish_times = np.full(n_drones, np.nan, dtype=np.float32)
+        controller_finished = np.full(n_drones, False, dtype=bool)
+
         i = 0
         fps = 60
 
         while True:
             curr_time = i / config.env.freq
+            ranked_infos = [_info_with_rank(info, rank) for rank in range(n_drones)]
 
-            action = controller.compute_control(obs, info)
-            action = np.array([action] * n_drones * n_worlds, dtype=np.float32)
-            action[1, 0] += 0.2
-            obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated | truncated
-            # Update the controller internal state and models.
-            controller.step_callback(action, obs, reward, terminated, truncated, info)
-            # Add up reward, collisions
+            actions = np.stack(
+                [
+                    ctrl.compute_control(obs, ctrl_info)
+                    for ctrl, ctrl_info in zip(controllers, ranked_infos)
+                ],
+                dtype=np.float32,
+            )
+
+            obs, reward, terminated, truncated, info = env.step(actions)
+
+            newly_finished = (obs["target_gate"] == -1) & np.isnan(finish_times)
+            finish_times[newly_finished] = curr_time
+            # Update the controllers' internal state and models.
+            for rank, (ctrl, ctrl_info) in enumerate(zip(controllers, ranked_infos)):
+                controller_finished[rank] = ctrl.step_callback(
+                    actions[rank], obs, reward, terminated, truncated, ctrl_info
+                )
 
             # Synchronize the GUI.
-            if config.sim.gui:
+            if config.sim.render:
                 if ((i * fps) % config.env.freq) < fps:
                     try:
                         env.render()
@@ -112,22 +134,35 @@ def simulate(
                         if not e.args[0].startswith("No known conversion for Jax type"):
                             raise e
             i += 1
-            if done:
+            if terminated | truncated | controller_finished.all():
                 break
 
-        controller.episode_callback()  # Update the controller internal state and models.
-        log_episode_stats(obs, info, config, curr_time)
-        controller.episode_reset()
+        for ctrl in controllers:
+            ctrl.episode_callback()  # Update the controller internal state and models.
+            ctrl.episode_reset()
+        log_episode_stats(obs, info, config, finish_times)
 
     # Close the environment
     env.close()
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
+def _info_with_rank(info: dict, rank: int) -> dict:
+    """Return a controller-specific info dict with the drone rank attached."""
+    return {**info, "rank": rank}
+
+
+def log_episode_stats(obs: dict, info: dict, config: ConfigDict, finish_times: np.ndarray):
     """Log the statistics of a single episode."""
     gates_passed = obs["target_gate"]
-    finished = gates_passed == -1
-    logger.info((f"Flight time (s): {curr_time}\nDrones finished: {finished}\n"))
+    n_gates = len(config.env.track.gates)
+    gates_passed = np.where(gates_passed == -1, n_gates, gates_passed)
+    finished = gates_passed == n_gates
+    logger.info(
+        "Flight time (s): %s\nFinished: %s\nGates passed: %s\n",
+        finish_times.tolist(),
+        finished.tolist(),
+        gates_passed.tolist(),
+    )
 
 
 if __name__ == "__main__":
