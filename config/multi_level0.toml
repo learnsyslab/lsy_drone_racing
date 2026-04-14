@@ -4,9 +4,9 @@
 # | :-----------------: | :-----------------------: | :-------------------------: | :--------------------: | :---------------: |
 # | `level0.toml`       | *No*                      | *No*                        | *No*                   | Perfect knowledge |
 [[controller]]
-file = "state_controller.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
+file = "attitude_mpc_multi.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
 [[controller]]  # Add the controller files for each drone
-file = "attitude_controller.py"
+file = "attitude_controller_multi.py"
 
 [deploy]
 ### Settings only relevant for deployment
@@ -53,7 +53,7 @@ seed = -1               # -1 for random seeds or a non-zero integer for reproduc
 [[env.kwargs]]
 freq = 50               # Frequency of the environment's step function, in Hz
 sensor_range = 0.7      # Range at which the exact location of gates and obstacles become visible to the drone. Objects that are not in the drone's sensor range report their nominal position.
-control_mode = "state"  # Control mode of the environment. Can be either "state" or "attitude"
+control_mode = "attitude"  # Control mode of the environment. Can be either "state" or "attitude"
 [[env.kwargs]]
 freq = 100
 sensor_range = 0.7
