@@ -1,10 +1,7 @@
-"""This module implements an example MPC using attitude control for a quadrotor.
+"""This module wraps the AttitudeMPC to handle batched multi-agent environments.
 
-It utilizes the collective thrust interface for drone control to compute control commands based on
-current state observations and desired waypoints.
-
-The waypoints are generated using cubic spline interpolation from a set of predefined waypoints.
-Note that the trajectory uses pre-defined waypoints instead of dynamically generating a good path.
+In multi-agent simulations, observations are batched across all drones.
+The rank index is used to select the state of the current drone.
 """
 
 from __future__ import annotations  # Python 3.10 type hints

@@ -1,11 +1,7 @@
-"""This module implements an AttitudeController for quadrotor control.
+"""This module wraps the AttitudeController to handle batched multi-agent environments.
 
-It utilizes the collective thrust interface for drone control to compute control commands based on
-current state observations and desired waypoints. The attitude control is handled by computing a
-PID control law for position tracking, incorporating gravity compensation in thrust calculations.
-
-The waypoints are generated using cubic spline interpolation from a set of predefined waypoints.
-Note that the trajectory uses pre-defined waypoints instead of dynamically generating a good path.
+In multi-agent simulations, observations are batched across all drones.
+The rank index is used to select the state of the current drone.
 """
 
 from __future__ import annotations  # Python 3.10 type hints
