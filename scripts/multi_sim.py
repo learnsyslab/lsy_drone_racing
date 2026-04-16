@@ -62,12 +62,12 @@ def simulate(
     # Load the controller modules
     control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
     if controllers is None:
-        controllers = [controller["file"] for controller in config.controller]
+        controller_names = [controller["file"] for controller in config.controller]
     else:
-        controllers = [controller.strip() for controller in controllers.split(",")]
+        controller_names = [controller.strip() for controller in controllers.split(",")]
 
     controller_classes = [
-        load_controller(control_path / controller) for controller in controllers
+        load_controller(control_path / controller) for controller in controller_names
     ]  # This returns a list of classes, not a list of instances
 
     # Create the racing environment
@@ -91,7 +91,7 @@ def simulate(
 
     for _ in range(n_runs):  # Run n_runs episodes with the controllers
         obs, info = env.reset()
-        controllers: list[Controller] = [
+        controller_instances: list[Controller] = [
             cls(obs, _info_with_rank(info, rank), config)
             for rank, cls in enumerate(controller_classes)
         ]
@@ -108,7 +108,7 @@ def simulate(
             actions = np.stack(
                 [
                     ctrl.compute_control(obs, ctrl_info)
-                    for ctrl, ctrl_info in zip(controllers, ranked_infos)
+                    for ctrl, ctrl_info in zip(controller_instances, ranked_infos)
                 ],
                 dtype=np.float32,
             )
@@ -118,7 +118,7 @@ def simulate(
             newly_finished = (obs["target_gate"] == -1) & np.isnan(finish_times)
             finish_times[newly_finished] = curr_time
             # Update the controllers' internal state and models.
-            for rank, (ctrl, ctrl_info) in enumerate(zip(controllers, ranked_infos)):
+            for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
                 controller_finished[rank] = ctrl.step_callback(
                     actions[rank], obs, reward, terminated, truncated, ctrl_info
                 )
@@ -137,10 +137,10 @@ def simulate(
             if terminated | truncated | controller_finished.all():
                 break
 
-        for ctrl in controllers:
+        for ctrl in controller_instances:
             ctrl.episode_callback()  # Update the controller internal state and models.
             ctrl.episode_reset()
-        log_episode_stats(obs, info, config, finish_times)
+        log_episode_stats(obs, info, config, finish_times, controller_names)
 
     # Close the environment
     env.close()
@@ -151,18 +151,40 @@ def _info_with_rank(info: dict, rank: int) -> dict:
     return {**info, "rank": rank}
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, finish_times: np.ndarray):
+def log_episode_stats(
+    obs: dict,
+    info: dict,
+    config: ConfigDict,
+    finish_times: np.ndarray,
+    controller_names: list[str],
+):
     """Log the statistics of a single episode."""
     gates_passed = obs["target_gate"]
     n_gates = len(config.env.track.gates)
     gates_passed = np.where(gates_passed == -1, n_gates, gates_passed)
     finished = gates_passed == n_gates
-    logger.info(
-        "Flight time (s): %s\nFinished: %s\nGates passed: %s\n",
-        finish_times.tolist(),
-        finished.tolist(),
-        gates_passed.tolist(),
-    )
+
+    time_strings = [
+        "DNF" if np.isnan(finish_time) else f"{finish_time:.2f}" for finish_time in finish_times
+    ]
+    name_width = max(len("controller"), max(len(name) for name in controller_names))
+    time_width = max(len("time [s]"), max(len(time_str) for time_str in time_strings))
+    finished_width = len("finished")
+    gates_width = len("gates")
+
+    lines = [
+        f"{'controller':<{name_width}} | {'time [s]':>{time_width}} | "
+        f"{'finished':>{finished_width}} | {'gates':>{gates_width}}"
+    ]
+    for i, controller_name in enumerate(controller_names):
+        lines.append(
+            f"{controller_name:<{name_width}} | {time_strings[i]:>{time_width}} | "
+            f"{str(finished[i]):>{finished_width}} | {gates_passed[i]:>{gates_width}}"
+        )
+
+    table = "\n".join(lines)
+    logger.info(f"Episode stats:\n{table}\n")
+
 
 
 if __name__ == "__main__":
