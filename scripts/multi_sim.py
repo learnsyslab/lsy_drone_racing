@@ -152,11 +152,7 @@ def _info_with_rank(info: dict, rank: int) -> dict:
 
 
 def log_episode_stats(
-    obs: dict,
-    info: dict,
-    config: ConfigDict,
-    finish_times: np.ndarray,
-    controller_names: list[str],
+    obs: dict, info: dict, config: ConfigDict, finish_times: np.ndarray, controller_names: list[str]
 ):
     """Log the statistics of a single episode."""
     gates_passed = obs["target_gate"]
@@ -184,7 +180,6 @@ def log_episode_stats(
 
     table = "\n".join(lines)
     logger.info(f"Episode stats:\n{table}\n")
-
 
 
 if __name__ == "__main__":
