@@ -27,8 +27,14 @@ class AttitudeMPC(SingleAttitudeMPC):
             info: Additional environment information from the reset.
             config: The configuration of the environment.
         """
-        super().__init__(obs, info, config)
         self.rank = info["rank"]
+        obs = {
+            "pos": obs["pos"][self.rank],
+            "vel": obs["vel"][self.rank],
+            "quat": obs["quat"][self.rank],
+            "ang_vel": obs["ang_vel"][self.rank],
+        }
+        super().__init__(obs, info, config)
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None

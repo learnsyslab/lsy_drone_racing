@@ -51,8 +51,10 @@ class AttitudeController(Controller):
         self.g = 9.81
 
         # Same waypoints as in the position controller. Determined by trial and error.
+        start_position = obs.get("pos")
         waypoints = np.array(
             [
+                start_position,
                 [-1.5, 0.75, 0.05],
                 [-1.0, 0.55, 0.4],
                 [0.3, 0.35, 0.7],

@@ -2,7 +2,7 @@
 
 Run as:
 
-    $ python scripts/multi_sim.py --config level0.toml
+    $ python scripts/multi_sim.py --config multi_level0.toml
 
 Look for instructions in `README.md` and in the official documentation.
 """
