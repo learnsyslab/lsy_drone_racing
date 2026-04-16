@@ -88,9 +88,11 @@ def simulate(
     config.env.freq = config.env.kwargs[0]["freq"]
     env = JaxToNumpy(env)
     n_drones = env.unwrapped.sim.n_drones
+    action_shape = env.action_space.shape[1]
 
     for _ in range(n_runs):  # Run n_runs episodes with the controllers
         obs, info = env.reset()
+        # Inject the rank information when creating the controller
         controller_instances: list[Controller] = [
             cls(obs, _info_with_rank(info, rank), config)
             for rank, cls in enumerate(controller_classes)
@@ -104,14 +106,16 @@ def simulate(
         while True:
             curr_time = i / config.env.freq
             ranked_infos = [_info_with_rank(info, rank) for rank in range(n_drones)]
+            disabled_drones = env.unwrapped.data.disabled_drones[0]
 
-            actions = np.stack(
-                [
-                    ctrl.compute_control(obs, ctrl_info)
-                    for ctrl, ctrl_info in zip(controller_instances, ranked_infos)
-                ],
-                dtype=np.float32,
-            )
+            # Set default action to zeros only
+            actions = np.zeros((n_drones, action_shape), dtype=np.float32)
+            for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
+                # Only compute action if drone is not disabled
+                if disabled_drones[rank]:
+                    controller_finished[rank] = True
+                    continue
+                actions[rank] = ctrl.compute_control(obs, ctrl_info)
 
             obs, reward, terminated, truncated, info = env.step(actions)
 
@@ -119,6 +123,8 @@ def simulate(
             finish_times[newly_finished] = curr_time
             # Update the controllers' internal state and models.
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
+                if disabled_drones[rank]:
+                    continue
                 controller_finished[rank] = ctrl.step_callback(
                     actions[rank], obs, reward, terminated, truncated, ctrl_info
                 )
