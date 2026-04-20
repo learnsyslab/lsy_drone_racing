@@ -94,8 +94,7 @@ def simulate(
         obs, info = env.reset()
         # Inject the rank information when creating the controller
         controller_instances: list[Controller] = [
-            cls(obs, _info_with_rank(info, rank), config)
-            for rank, cls in enumerate(controller_classes)
+            cls(obs, {**info, "rank": rank}, config) for rank, cls in enumerate(controller_classes)
         ]
         finish_times = np.full(n_drones, np.nan, dtype=np.float32)
         controller_finished = np.full(n_drones, False, dtype=bool)
@@ -105,7 +104,7 @@ def simulate(
 
         while True:
             curr_time = i / config.env.freq
-            ranked_infos = [_info_with_rank(info, rank) for rank in range(n_drones)]
+            ranked_infos = [{**info, "rank": rank} for rank in range(n_drones)]
             disabled_drones = env.unwrapped.data.disabled_drones[0]
 
             # Set default action to zeros only
@@ -132,13 +131,7 @@ def simulate(
             # Synchronize the GUI.
             if config.sim.render:
                 if ((i * fps) % config.env.freq) < fps:
-                    try:
-                        env.render()
-                    # TODO: JaxToNumpy not working with None (returned by env.render()). Open issue
-                    # in gymnasium and fix this.
-                    except Exception as e:
-                        if not e.args[0].startswith("No known conversion for Jax type"):
-                            raise e
+                    env.render()
             i += 1
             if terminated | truncated | controller_finished.all():
                 break
@@ -150,11 +143,6 @@ def simulate(
 
     # Close the environment
     env.close()
-
-
-def _info_with_rank(info: dict, rank: int) -> dict:
-    """Return a controller-specific info dict with the drone rank attached."""
-    return {**info, "rank": rank}
 
 
 def log_episode_stats(
