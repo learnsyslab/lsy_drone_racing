@@ -41,9 +41,11 @@ class StateController(Controller):
         self._freq = config.env.freq
 
         # Same waypoints as in the attitude controller. Determined by trial and error.
+        start_position = obs.get("pos")
         waypoints = np.array(
             [
-                [-1.5, 0.75, 0.05],
+                start_position,
+                start_position + [0.0, 0.0, 0.15],
                 [-1.0, 0.55, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],

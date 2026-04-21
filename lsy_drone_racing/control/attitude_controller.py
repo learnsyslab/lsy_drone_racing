@@ -55,7 +55,7 @@ class AttitudeController(Controller):
         waypoints = np.array(
             [
                 start_position,
-                [-1.5, 0.75, 0.05],
+                start_position + [0.0, 0.0, 0.15],
                 [-1.0, 0.55, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],

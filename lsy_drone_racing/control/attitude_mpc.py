@@ -188,7 +188,7 @@ class AttitudeMPC(Controller):
         waypoints = np.array(
             [
                 start_position,
-                [-1.5, 0.75, 0.05],
+                start_position + [0.0, 0.0, 0.15],
                 [-1.0, 0.55, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],
@@ -200,7 +200,7 @@ class AttitudeMPC(Controller):
                 [0.5, -0.75, 1.2],
             ]
         )
-        self._t_total = 14  # s
+        self._t_total = 15  # s
         t = np.linspace(0, self._t_total, len(waypoints))
         self._des_pos_spline = CubicSpline(t, waypoints)
         self._des_vel_spline = self._des_pos_spline.derivative()
