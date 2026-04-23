@@ -50,13 +50,12 @@ class AttitudeController(Controller):
         self.i_error = np.zeros(3)
         self.g = 9.81
 
-        # Same waypoints as in the position controller. Determined by trial and error.
-        start_position = obs.get("pos")
+        # Same waypoints as in the state controller. Determined by trial and error.
+        start_pos = obs["pos"]
         waypoints = np.array(
             [
-                start_position,
-                start_position + [0.0, 0.0, 0.15],
-                [-1.0, 0.55, 0.4],
+                start_pos,
+                [-1.0, 0.75, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],
                 [0.9, 0.7, 1.2],
