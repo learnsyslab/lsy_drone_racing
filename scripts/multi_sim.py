@@ -9,6 +9,7 @@ Look for instructions in `README.md` and in the official documentation.
 
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -70,10 +71,18 @@ def simulate(
         load_controller(control_path / controller) for controller in controller_names
     ]  # This returns a list of classes, not a list of instances
 
+    # Load in all controller frequencies and take the largest one as the environment baseline.
+    controller_freqs = np.array([kwargs["freq"] for kwargs in config.env.kwargs], dtype=np.int64)
+    base_freq = int(np.max(controller_freqs))
+    if np.any(base_freq % controller_freqs != 0):
+        raise ValueError(
+            f"Controller frequencies do not evenly divide the base frequency ({controller_freqs.tolist()})"
+        )
+
     # Create the racing environment
     env: MultiDroneRacingEnv = gymnasium.make(
         "MultiDroneRacing-v0",
-        freq=config.env.kwargs[0]["freq"],
+        freq=base_freq,  # create the env with the largest control frequency
         sim_config=config.sim,
         track=config.env.track,
         sensor_range=config.env.kwargs[0]["sensor_range"],
@@ -82,39 +91,49 @@ def simulate(
         randomizations=config.env.get("randomizations"),
         seed=config.env.seed,
     )
-    # We use the same example controllers for this script as for the single-drone case. These expect
-    # the config to have env.freq set, so we copy it here. Actual multi-drone controllers should not
-    # rely on this.
-    config.env.freq = config.env.kwargs[0]["freq"]
+
     env = JaxToNumpy(env)
     n_drones = env.unwrapped.sim.n_drones
     action_shape = env.action_space.shape[1]
 
     for _ in range(n_runs):  # Run n_runs episodes with the controllers
         obs, info = env.reset()
-        # Inject the rank information when creating the controller
-        controller_instances: list[Controller] = [
-            cls(obs, {**info, "rank": rank}, config) for rank, cls in enumerate(controller_classes)
-        ]
+
+        # Inject rank and frequency information when creating the controller.
+        controller_instances: list[Controller] = []
+        for rank, cls in enumerate(controller_classes):
+            ctrl_config = copy.deepcopy(config)
+            ctrl_config.env.freq = np.int64(ctrl_config.env.kwargs[rank]["freq"])
+            controller_instances.append(cls(obs, {**info, "rank": rank}, ctrl_config))
+
         finish_times = np.full(n_drones, np.nan, dtype=np.float32)
         controller_finished = np.full(n_drones, False, dtype=bool)
+
+        # Compute the control update period for each controller.
+        periods = base_freq // controller_freqs
 
         i = 0
         fps = 60
 
+        # Set default action to zeros only
+        actions = np.zeros((n_drones, action_shape), dtype=np.float32)
+
         while True:
-            curr_time = i / config.env.freq
+            curr_time = i / base_freq
+
             ranked_infos = [{**info, "rank": rank} for rank in range(n_drones)]
             disabled_drones = env.unwrapped.data.disabled_drones[0]
 
-            # Set default action to zeros only
-            actions = np.zeros((n_drones, action_shape), dtype=np.float32)
+            # Create mask for selecting the active controller
+            controller_mask = (i % periods) == 0
+
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
                 # Only compute action if drone is not disabled
                 if disabled_drones[rank]:
                     controller_finished[rank] = True
                     continue
-                actions[rank] = ctrl.compute_control(obs, ctrl_info)
+                if controller_mask[rank]:
+                    actions[rank] = ctrl.compute_control(obs, ctrl_info)
 
             obs, reward, terminated, truncated, info = env.step(actions)
 
@@ -124,16 +143,22 @@ def simulate(
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
                 if disabled_drones[rank]:
                     continue
-                controller_finished[rank] = ctrl.step_callback(
-                    actions[rank], obs, reward, terminated, truncated, ctrl_info
-                )
+                if controller_mask[rank]:
+                    controller_finished[rank] = ctrl.step_callback(
+                        actions[rank], obs, reward, terminated, truncated, ctrl_info
+                    )
 
             # Synchronize the GUI.
             if config.sim.render:
-                if ((i * fps) % config.env.freq) < fps:
+                if ((i * fps) % base_freq) < fps:
                     env.render()
             i += 1
             if terminated | truncated | controller_finished.all():
+                if truncated:
+                    logger.warning(
+                        "If termination was unexpected, check the controller frequency. "
+                        "The environment truncates after 1500 steps."
+                    )
                 break
 
         for ctrl in controller_instances:
