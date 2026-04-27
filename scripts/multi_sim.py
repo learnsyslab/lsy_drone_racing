@@ -74,6 +74,7 @@ def simulate(
     # Load in all controller frequencies and take the largest one as the environment baseline.
     controller_freqs = np.array([kwargs["freq"] for kwargs in config.env.kwargs], dtype=np.int64)
     base_freq = int(np.max(controller_freqs))
+    periods = base_freq // controller_freqs  # Precompute the periods for each controller.
     if np.any(base_freq % controller_freqs != 0):
         raise ValueError(
             f"Controller frequencies do not evenly divide the base frequency ({controller_freqs.tolist()})"
@@ -108,9 +109,6 @@ def simulate(
 
         finish_times = np.full(n_drones, np.nan, dtype=np.float32)
         controller_finished = np.full(n_drones, False, dtype=bool)
-
-        # Compute the control update period for each controller.
-        periods = base_freq // controller_freqs
 
         i = 0
         fps = 60
