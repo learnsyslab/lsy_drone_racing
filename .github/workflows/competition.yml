@@ -10,7 +10,7 @@ on:
 jobs:
   online-competition:
     # Skip this job if running on the main repo to prevent failing CI/CD. Only run on student forks.
-    if: ${{ github.repository != 'utiasDSL/lsy_drone_racing' }}
+    if: ${{ github.repository != 'learnsyslab/lsy_drone_racing' }}
 
     runs-on: ubuntu-latest
 
@@ -20,6 +20,7 @@ jobs:
           # The GitHub CLI uses this token to auth with the central repo
           GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
         run: |
+<<<<<<< HEAD
           echo "🚀 Dispatching evaluation to central repository..."
           
           # 1. Trigger the workflow with inputs
@@ -53,3 +54,17 @@ jobs:
           gh run watch $RUN_ID \
             --repo utiasDSL/lsy_drone_racing \
             --exit-status
+=======
+          # Notice the URL now ends with /competition.yaml/dispatches
+          curl -X POST https://api.github.com/repos/learnsyslab/lsy_drone_racing/actions/workflows/competition.yaml/dispatches \
+          -H "Accept: application/vnd.github.v3+json" \
+          -H "Authorization: Bearer ${{ secrets.DISPATCH_TOKEN }}" \
+          -d '{
+            "ref": "competition",
+            "inputs": {
+              "repository": "${{ github.repository }}",
+              "sha": "${{ github.sha }}",
+              "actor": "${{ github.actor }}"
+            }
+          }'
+>>>>>>> eb891d0 (Update to new orga name)

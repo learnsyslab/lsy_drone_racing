@@ -1,7 +1,7 @@
 Simulation
 ==========
 
-The first part of the challenge is to complete the race track in simulation. To that end, we provide a high-fidelity simulator with interfaces that are identical to the real-world setup. We use `crazyflow <https://github.com/utiasDSL/crazyflow/tree/main>`_ as the underlying simulator to model the physics of the drone and to render the environment.
+The first part of the challenge is to complete the race track in simulation. To that end, we provide a high-fidelity simulator with interfaces that are identical to the real-world setup. We use `crazyflow <https://github.com/learnsyslab/crazyflow/tree/main>`_ as the underlying simulator to model the physics of the drone and to render the environment.
 
 Running the Simulation
 ----------------------

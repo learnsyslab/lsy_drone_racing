@@ -34,22 +34,22 @@ The challenge is divided into different difficulty levels, each specified by a T
      - Randomized Obstacles, Gates
      - Randomized Tracks
      - Notes
-   * - `Level 0 <https://github.com/utiasDSL/lsy_drone_racing/blob/main/config/level0.toml>`_
+   * - `Level 0 <https://github.com/learnsyslab/lsy_drone_racing/blob/main/config/level0.toml>`_
      - No
      - No
      - No
      - Perfect knowledge
-   * - `Level 1 <https://github.com/utiasDSL/lsy_drone_racing/blob/main/config/level1.toml>`_
+   * - `Level 1 <https://github.com/learnsyslab/lsy_drone_racing/blob/main/config/level1.toml>`_
      - Yes
      - No
      - No
      - Adaptive
-   * - `Level 2 <https://github.com/utiasDSL/lsy_drone_racing/blob/main/config/level2.toml>`_
+   * - `Level 2 <https://github.com/learnsyslab/lsy_drone_racing/blob/main/config/level2.toml>`_
      - Yes
      - Yes
      - No
      - Learning, re-planning
-   * - `Level 3 <https://github.com/utiasDSL/lsy_drone_racing/blob/main/config/level3.toml>`_
+   * - `Level 3 <https://github.com/learnsyslab/lsy_drone_racing/blob/main/config/level3.toml>`_
      - Yes
      - Yes
      - Yes
@@ -60,7 +60,7 @@ The challenge is divided into different difficulty levels, each specified by a T
      - Yes
      - Sim2real transfer
 
-..    * - Bonus (`config/multi_level3.toml <https://github.com/utiasDSL/lsy_drone_racing/blob/main/config/multi_level3.toml>`_)
+..    * - Bonus (`config/multi_level3.toml <https://github.com/learnsyslab/lsy_drone_racing/blob/main/config/multi_level3.toml>`_)
 ..      - Yes
 ..      - Yes
 ..      - Multi-agent racing

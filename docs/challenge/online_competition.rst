@@ -8,7 +8,7 @@ The online competition takes place every semester for the students of the "Auton
 
 Leaderboard
 -----------
-We host the online competition directly on GitHub in the `competition branch <https://github.com/utiasDSL/lsy_drone_racing/tree/competition>`_. Students can submit their controllers to the competition by forking the repository and pushing their changes to their main branch. The fastest submission with at least 50% success rate will be used for the team ranking in the online leaderboard.
+We host the online competition directly on GitHub in the `competition branch <https://github.com/learnsyslab/lsy_drone_racing/tree/competition>`_. Students can submit their controllers to the competition by forking the repository and pushing their changes to their main branch. The fastest submission with at least 50% success rate will be used for the team ranking in the online leaderboard.
 
 .. note::
     The leaderboard is reset every semester. Participation is by whitelist only. If you have not been whitelisted as a student in the course, please contact the instructors.
