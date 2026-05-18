@@ -312,7 +312,14 @@ def build_full_track_randomization_fn(
         keys = jax.random.split(key, n_envs)
         gates_pos, gates_quat, obstacles_pos = batched_generate(keys)
         return leaf_replace(
-            data, mask, gates_pos=gates_pos, gates_quat=gates_quat, obstacles_pos=obstacles_pos
+            data,
+            mask,
+            gates_pos=gates_pos,
+            gates_quat=gates_quat,
+            obstacles_pos=obstacles_pos,
+            nominal_gates_pos=gates_pos,
+            nominal_gates_quat=gates_quat,
+            nominal_obstacles_pos=obstacles_pos,
         )
 
     return randomize_track

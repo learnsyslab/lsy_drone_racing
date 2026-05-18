@@ -134,9 +134,13 @@ class EnvData:
         """Create a new environment data struct with default values."""
         n_envs = sim_data.core.n_worlds
         n_drones = sim_data.core.n_drones
-        gates_pos = jax.device_put(jp.tile(nominal_gates_pos[None, ...], (n_envs, 1, 1)), device)
-        gates_quat = jax.device_put(jp.tile(nominal_gates_quat[None, ...], (n_envs, 1, 1)), device)
-        obstacles_pos = jax.device_put(
+        tiled_gates_pos = jax.device_put(
+            jp.tile(nominal_gates_pos[None, ...], (n_envs, 1, 1)), device
+        )
+        tiled_gates_quat = jax.device_put(
+            jp.tile(nominal_gates_quat[None, ...], (n_envs, 1, 1)), device
+        )
+        tiled_obstacles_pos = jax.device_put(
             jp.tile(nominal_obstacles_pos[None, ...], (n_envs, 1, 1)), device
         )
         return EnvData(
@@ -152,12 +156,12 @@ class EnvData:
             pos_limit_low=jp.array(pos_limit_low, dtype=np.float32, device=device),
             pos_limit_high=jp.array(pos_limit_high, dtype=np.float32, device=device),
             max_episode_steps=jp.array([max_episode_steps], dtype=int, device=device),
-            gates_pos=gates_pos,
-            gates_quat=gates_quat,
-            obstacles_pos=obstacles_pos,
-            nominal_gates_pos=jp.array(nominal_gates_pos, dtype=np.float32, device=device),
-            nominal_gates_quat=jp.array(nominal_gates_quat, dtype=np.float32, device=device),
-            nominal_obstacles_pos=jp.array(nominal_obstacles_pos, dtype=np.float32, device=device),
+            gates_pos=tiled_gates_pos,
+            gates_quat=tiled_gates_quat,
+            obstacles_pos=tiled_obstacles_pos,
+            nominal_gates_pos=tiled_gates_pos,
+            nominal_gates_quat=tiled_gates_quat,
+            nominal_obstacles_pos=tiled_obstacles_pos,
             sim_data=sim_data,
             sensor_range=jp.array([sensor_range], dtype=jp.float32, device=device),
         )
@@ -673,13 +677,11 @@ class RaceCoreEnv:
 def obs(data: EnvData) -> dict[str, Array]:
     """Return the observation of the environment."""
     mask = data.gates_visited[..., None]
-    sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[None, None])
-    sensor_gates_quat = jp.where(
-        mask, data.gates_quat[:, None], data.nominal_gates_quat[None, None]
-    )
+    sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[:, None])
+    sensor_gates_quat = jp.where(mask, data.gates_quat[:, None], data.nominal_gates_quat[:, None])
     mask = data.obstacles_visited[..., None]
     sensor_obstacles_pos = jp.where(
-        mask, data.obstacles_pos[:, None], data.nominal_obstacles_pos[None, None]
+        mask, data.obstacles_pos[:, None], data.nominal_obstacles_pos[:, None]
     )
     return {
         "pos": data.sim_data.states.pos,
