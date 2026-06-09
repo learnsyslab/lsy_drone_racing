@@ -65,9 +65,9 @@ python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
 ruff = "*"
 # Compilers needed for acados
-cmake = "*"
 compilers = ">=1.9.0, <1.11.0"
-make = "*"
+cmake = "==3.26.0"  # Pinned for motion_capture_tracking
+make = "==4.4.1"  # Pinned for motion_capture_tracking
 openblas = ">=0.3.30,<0.4"
 packaging = "<26"
 
@@ -96,10 +96,7 @@ channels = ["https://prefix.dev/robostack-kilted"]
 
 [tool.pixi.feature.kilted.dependencies]
 # Build tools
-compilers = "*"
-cmake = "*"
 pkg-config = "*"
-make = "*"
 ninja = "*"
 libboost-devel = ">=1.86,<1.87"
 # ROS specific tools
@@ -107,6 +104,7 @@ rosdep = "*"
 colcon-common-extensions = "*"
 # Kilted specific tools
 ros-kilted-desktop = "*"
+ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 ros-kilted-rmw-zenoh-cpp = "*"
 
 [tool.pixi.feature.kilted.activation]
@@ -159,6 +157,7 @@ exclude = [
     ".vscode",
     "__pypackages__",
     "_build",
+    "acados",
     "build",
     "dist",
     "site-packages",
