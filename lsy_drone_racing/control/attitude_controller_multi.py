@@ -32,13 +32,7 @@ class AttitudeController(SingleAttitudeController):
             config: The configuration of the environment.
         """
         self.rank = info["rank"]
-        obs = {
-            "pos": obs["pos"][self.rank],
-            "vel": obs["vel"][self.rank],
-            "quat": obs["quat"][self.rank],
-            "ang_vel": obs["ang_vel"][self.rank],
-        }
-        super().__init__(obs, info, config)
+        super().__init__({k: v[self.rank] for k, v in obs.items()}, info, config)
         # We don't want the example controllers to crash, so we speed up this one to get ahead
         self._t_total = 11
         waypoints = self._des_pos_spline._c[-1]
@@ -60,10 +54,4 @@ class AttitudeController(SingleAttitudeController):
             The orientation as roll, pitch, yaw angles, and the collective thrust
             [r_des, p_des, y_des, t_des] as a numpy array.
         """
-        obs = {
-            "pos": obs["pos"][self.rank],
-            "vel": obs["vel"][self.rank],
-            "quat": obs["quat"][self.rank],
-            "ang_vel": obs["ang_vel"][self.rank],
-        }
-        return super().compute_control(obs, info)
+        return super().compute_control({k: v[self.rank] for k, v in obs.items()}, info)
