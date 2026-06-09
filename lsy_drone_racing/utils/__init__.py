@@ -4,6 +4,6 @@ We separate utility functions that require ROS into a separate module to avoid R
 dependency for sim-only scripts.
 """
 
-from lsy_drone_racing.utils.utils import draw_line, load_config, load_controller
+from lsy_drone_racing.utils.utils import load_config, load_controller
 
-__all__ = ["draw_line", "load_config", "load_controller"]
+__all__ = ["load_config", "load_controller"]
