@@ -1,0 +1,1 @@
+bool race_finished

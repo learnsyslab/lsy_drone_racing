@@ -18,5 +18,8 @@ c_generated_code/
 .pixi/*
 !.pixi/config.toml
 # ROS2 workspace build artifacts
-ros_ws/**
+ros_ws/src/motion_capture_tracking
+ros_ws/build
+ros_ws/install
+ros_ws/log
 acados/**
