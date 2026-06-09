@@ -34,7 +34,7 @@ class AttitudeController(SingleAttitudeController):
         self.rank = info["rank"]
         super().__init__({k: v[self.rank] for k, v in obs.items()}, info, config)
         # We don't want the example controllers to crash, so we speed up this one to get ahead
-        self._t_total = 11
+        self._t_total = 10
         waypoints = self._des_pos_spline._c[-1]
         t = np.linspace(0, self._t_total, len(waypoints))
         self._des_pos_spline = CubicSpline(t, waypoints)
