@@ -25,12 +25,8 @@ from cflib.utils.power_switch import PowerSwitch
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from drone_models.core import load_params
 from drone_models.transform import force2pwm
-from drone_racing_msgs.msg import (  # type: ignore[import-untyped]
-    RealClientState,
-    RealHostReady,
-    RealRaceStart,
-)
-from drone_racing_msgs.srv import RealCalibrateClock  # type: ignore[import-untyped]
+from drone_racing_msgs.msg import RealClientState, RealHostReady, RealRaceStart
+from drone_racing_msgs.srv import RealCalibrateClock
 from scipy.spatial.transform import RigidTransform as Tr
 from scipy.spatial.transform import Rotation as R
 

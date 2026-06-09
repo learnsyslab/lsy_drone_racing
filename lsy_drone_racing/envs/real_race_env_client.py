@@ -28,7 +28,7 @@ from gymnasium import Env
 from lsy_drone_racing.envs.real_race_env import EnvData
 from lsy_drone_racing.envs.utils import gate_passed, load_track
 from lsy_drone_racing.utils.ros import track_poses
-from lsy_drone_racing.utils.ros_race_comm import RaceCommNode, calibrate_clock, compute_latency_ms
+from lsy_drone_racing.utils.ros_race_comm import RaceCommNode, calibrate_clock
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
@@ -302,7 +302,7 @@ class RealMultiDroneRaceEnvClient(Env):
 
         def on_host_ready(msg: RealHostReady):
             self._host_ready_event.set()
-            logger.debug(f"Host ready (latency: {compute_latency_ms(msg.timestamp):.2f}ms)")
+            logger.debug(f"Host ready (latency: {time.time() - msg.timestamp:.2f}ms)")
 
         def on_race_start(msg: RealRaceStart):
             self._race_started = True

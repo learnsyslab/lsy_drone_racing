@@ -21,7 +21,7 @@ import time
 from typing import TYPE_CHECKING
 
 import rclpy
-from drone_racing_msgs.srv import RealCalibrateClock  # type: ignore[import-untyped]
+from drone_racing_msgs.srv import RealCalibrateClock
 from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
 
 if TYPE_CHECKING:
@@ -48,20 +48,6 @@ def _suppress_shutdown_thread_errors():
             _original(args)
 
     threading.excepthook = _hook
-
-
-def compute_latency_ms(timestamp: float, clock_offset: float = 0.0) -> float:
-    """Compute one-way latency in milliseconds from a sent timestamp.
-
-    Args:
-        timestamp: Time the message was sent.
-        clock_offset: Calibrated offset (host_time - client_time) in seconds.
-            Zero when called on the host side (timestamps are already in host time).
-
-    Returns:
-        Estimated one-way latency in milliseconds.
-    """
-    return (time.time() - timestamp - clock_offset) * 1000
 
 
 def calibrate_clock(client: Client, n: int = 5, timeout: float = 60.0) -> float:
