@@ -8,12 +8,14 @@ from __future__ import annotations  # Python 3.10 type hints
 
 from typing import TYPE_CHECKING
 
+import numpy as np
+from scipy.interpolate import CubicSpline
+
 from lsy_drone_racing.control.attitude_controller import (
     AttitudeController as SingleAttitudeController,
 )
 
 if TYPE_CHECKING:
-    import numpy as np
     from numpy.typing import NDArray
 
 
@@ -37,6 +39,12 @@ class AttitudeController(SingleAttitudeController):
             "ang_vel": obs["ang_vel"][self.rank],
         }
         super().__init__(obs, info, config)
+        # We don't want the example controllers to crash, so we speed up this one to get ahead
+        self._t_total = 11
+        waypoints = self._des_pos_spline._c[-1]
+        t = np.linspace(0, self._t_total, len(waypoints))
+        self._des_pos_spline = CubicSpline(t, waypoints)
+        self._des_vel_spline = self._des_pos_spline.derivative()
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
