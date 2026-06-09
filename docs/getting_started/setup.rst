@@ -208,11 +208,15 @@ If this works, you need a total of *three* open terminals with the deploy enviro
 
    # USB preparation for crazyradio
    sudo groupadd plugdev
-   sudo usermod -a -G plugdev $USER
+   sudo usermod -a -G plugdev YOUR-USERNAME
 
    # Apply changes
    sudo udevadm control --reload-rules
    sudo udevadm trigger
+
+.. note::
+   For TAs: Switch to the admin account using ``su`` and replace
+   ``YOUR-USERNAME`` with the student's username.
 
 Now you are ready to deploy your controller on real drones. First, run the motion capture tracking node. If there are valid elements in the motion capture area, you should be able to see them in the rviz window.
 
