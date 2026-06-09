@@ -37,7 +37,6 @@ from lsy_drone_racing.utils.ros_race_comm import RaceCommNode
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
     from numpy.typing import NDArray
-    from rclpy.publisher import Publisher
 
 logger = logging.getLogger(__name__)
 
@@ -368,79 +367,7 @@ class CrazyflieWorker:
         ).run()
 
 
-class RealRaceHost:
-    """Base class for multi-drone race hosts.
-
-    Subclasses implement :meth:`connect_drones`, :meth:`host_main_loop`, and :meth:`close`
-    for a specific drone platform.
-    """
-
-    _comm: RaceCommNode | None
-    _host_ready_pub: Publisher | None
-    _race_start_pub: Publisher | None
-
-    def __init__(self, num_drones: int):
-        """Initialize the host and set up ROS2 communication.
-
-        Args:
-            num_drones: Number of drones participating in the race.
-        """
-        self._num_drones = num_drones
-        self._shutdown_event = threading.Event()
-        self._clients_ready: dict[int, bool] = {rank: False for rank in range(num_drones)}
-        self._clients_stopped: dict[int, bool] = {rank: False for rank in range(num_drones)}
-        self._start_time = time.time()
-        self._comm = None
-        self._host_ready_pub = None
-        self._race_start_pub = None
-        self.init_comm()
-
-    def init_comm(self):
-        """Set up the ROS2 communication node with all publishers and subscribers."""
-        self._comm = RaceCommNode("lsy_race_host")
-        node = self._comm.node
-        self._host_ready_pub = node.create_publisher(
-            RealHostReady, "lsy_drone_racing/host/ready", 10
-        )
-        self._race_start_pub = node.create_publisher(
-            RealRaceStart, "lsy_drone_racing/host/race_start", 10
-        )
-        self._subs = []
-        for rank in range(self._num_drones):
-
-            def on_client_state(msg: RealClientState, rank: int = rank):
-                if not self._clients_ready[rank]:
-                    logger.debug(f"Client {rank} ready")
-                    self._clients_ready[rank] = True
-                if msg.controller_finished:
-                    logger.info(f"Client {rank} stopped (gate={msg.next_gate_idx})")
-                    self._clients_stopped[rank] = True
-
-            self._subs.append(
-                node.create_subscription(
-                    RealClientState,
-                    f"lsy_drone_racing/client/drone_{rank}/state",
-                    on_client_state,
-                    10,
-                )
-            )
-        logger.debug("ROS2 communication initialized")
-
-    def connect_drones(self):
-        """Connect to all drones. Must be implemented by subclasses."""
-        raise NotImplementedError
-
-    def host_main_loop(self):
-        """Run the host's main coordination loop. Must be implemented by subclasses."""
-        raise NotImplementedError
-
-    def close(self):
-        """Release all resources."""
-        if self._comm:
-            self._comm.close()
-
-
-class CrazyFlieRealRaceHost(RealRaceHost):
+class CrazyflieRealRaceHost:
     """Race host implementation for multi-drone racing with Crazyflie drones.
 
     Each drone runs in its own subprocess (:class:`CrazyflieWorker`) that handles
@@ -486,11 +413,50 @@ class CrazyFlieRealRaceHost(RealRaceHost):
         self._drone_models = [drone["drone_model"] for drone in deploy_args.drones]
         self._drone_control_freq = [kwargs["freq"] for kwargs in control_args]
         self._drone_control_mode = [kwargs["control_mode"] for kwargs in control_args]
-        super().__init__(num_drones=len(deploy_args.drones))
+        self._num_drones = len(deploy_args.drones)
         self._mp_ctx = mp.get_context("spawn")
         self._processes = []
         self._stop_event = None
         self._init_barrier = None
+        self._shutdown_event = threading.Event()
+        self._clients_ready: dict[int, bool] = {rank: False for rank in range(self._num_drones)}
+        self._clients_stopped: dict[int, bool] = {rank: False for rank in range(self._num_drones)}
+        self._start_time = time.time()
+        self._comm = None
+        self._host_ready_pub = None
+        self._race_start_pub = None
+        self.init_comm()
+
+    def init_comm(self):
+        """Set up the ROS2 communication node with all publishers and subscribers."""
+        self._comm = RaceCommNode("lsy_race_host")
+        node = self._comm.node
+        self._host_ready_pub = node.create_publisher(
+            RealHostReady, "lsy_drone_racing/host/ready", 10
+        )
+        self._race_start_pub = node.create_publisher(
+            RealRaceStart, "lsy_drone_racing/host/race_start", 10
+        )
+        self._subs = []
+        for rank in range(self._num_drones):
+
+            def on_client_state(msg: RealClientState, rank: int = rank):
+                if not self._clients_ready[rank]:
+                    logger.debug(f"Client {rank} ready")
+                    self._clients_ready[rank] = True
+                if msg.controller_finished:
+                    logger.info(f"Client {rank} stopped (gate={msg.next_gate_idx})")
+                    self._clients_stopped[rank] = True
+
+            self._subs.append(
+                node.create_subscription(
+                    RealClientState,
+                    f"lsy_drone_racing/client/drone_{rank}/state",
+                    on_client_state,
+                    10,
+                )
+            )
+        logger.debug("ROS2 communication initialized")
 
     def check_track(
         self, rng_config: ConfigDict, check_objects: bool = True, check_drones: bool = True
@@ -628,7 +594,8 @@ class CrazyFlieRealRaceHost(RealRaceHost):
                         process.kill()
                         process.join()
 
-        super().close()
+        if self._comm:
+            self._comm.close()
         logger.info("Host shutdown complete")
 
     def _calibrate_client_clocks(self):

@@ -17,7 +17,7 @@ from pathlib import Path
 import fire
 import rclpy
 
-from lsy_drone_racing.envs.real_race_host import CrazyFlieRealRaceHost
+from lsy_drone_racing.envs.real_race_host import CrazyflieRealRaceHost
 from lsy_drone_racing.utils import load_config
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def main(config: str = "multi_level2.toml"):
     """
     rclpy.init()
     config_obj = load_config(Path(__file__).parents[1] / "config" / config)
-    host = CrazyFlieRealRaceHost(
+    host = CrazyflieRealRaceHost(
         track=config_obj.env.track,
         deploy_args=config_obj.deploy,
         control_args=config_obj.env.kwargs,
