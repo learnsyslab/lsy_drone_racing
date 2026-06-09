@@ -69,9 +69,9 @@ python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
 ruff = "*"
 # Compilers needed for acados
-cmake = "*"
 compilers = ">=1.9.0, <1.11.0"
-make = "*"
+cmake = "==3.26.0"  # Pinned for motion_capture_tracking
+make = "==4.4.1"  # Pinned for motion_capture_tracking
 openblas = ">=0.3.30,<0.4"
 
 [tool.pixi.pypi-dependencies]
@@ -99,16 +99,14 @@ channels = ["https://prefix.dev/robostack-kilted"]
 
 [tool.pixi.feature.kilted.dependencies]
 # Build tools
-compilers = "*"
-cmake = "*"
 pkg-config = "*"
-make = "*"
 ninja = "*"
 # ROS specific tools
 rosdep = "*"
 colcon-common-extensions = "*"
 # Kilted specific tools
 ros-kilted-desktop = "*"
+ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 
 [tool.pixi.feature.kilted.activation]
 scripts = ["tools/setup_mocap.sh"]
