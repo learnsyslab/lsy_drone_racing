@@ -1,11 +1,11 @@
 # Autonomous Drone Racing Challenge
 
 <div align="center">
-  <a href="https://github.com/utiasDSL/crazyflow">
+  <a href="https://github.com/learnsyslab/crazyflow">
     <img width="800" height="450" src="docs/img/race.gif">
   </a>
   <br/>
-  <sub><sup style="font-size: 0.8em;"><a href="https://github.com/utiasDSL/crazyflow">Powered by Crazyflow</a></sup></sub>
+  <sub><sup style="font-size: 0.8em;"><a href="https://github.com/learnsyslab/crazyflow">Powered by Crazyflow</a></sup></sub>
   </br>
   </br>
 </div>
@@ -15,14 +15,14 @@
 [Python Version]: https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue  
 [Python Version URL]: https://www.python.org  
 
-[Ruff Check]: https://github.com/utiasDSL/lsy_drone_racing/actions/workflows/ruff.yml/badge.svg?style=flat-square  
-[Ruff Check URL]: https://github.com/utiasDSL/lsy_drone_racing/actions/workflows/ruff.yml  
+[Ruff Check]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/ruff.yml/badge.svg?style=flat-square  
+[Ruff Check URL]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/ruff.yml  
 
 [Documentation Status]: https://readthedocs.org/projects/lsy-drone-racing/badge/?version=latest  
 [Documentation Status URL]: https://lsy-drone-racing.readthedocs.io/en/latest/?badge=latest  
 
-[Tests]: https://github.com/utiasDSL/lsy_drone_racing/actions/workflows/testing.yml/badge.svg  
-[Tests URL]: https://github.com/utiasDSL/lsy_drone_racing/actions/workflows/testing.yml  
+[Tests]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/testing.yml/badge.svg  
+[Tests URL]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/testing.yml  
 
 ---
 
@@ -44,9 +44,9 @@ To get started, visit our [official documentation](https://lsy-drone-racing.read
 This project builds upon several open-source packages developed by the [Learning Systems Lab (LSY)](https://www.ce.cit.tum.de/lsy/home/) at TUM.  
 You can explore these related projects:
 
-- [**crazyflow**](https://github.com/utiasDSL/crazyflow) – A high-speed, high-fidelity drone simulator with strong sim-to-real performance.  
-- [**drone-models**](https://github.com/utiasDSL/drone-models) – A collection of accurate drone models for simulation and model-based control.  
-- [**drone-controllers**](https://github.com/utiasDSL/drone-controllers) – Controllers for the Crazyflie quadrotor.  
+- [**crazyflow**](https://github.com/learnsyslab/crazyflow) – A high-speed, high-fidelity drone simulator with strong sim-to-real performance.  
+- [**drone-models**](https://github.com/learnsyslab/drone-models) – A collection of accurate drone models for simulation and model-based control.  
+- [**drone-controllers**](https://github.com/learnsyslab/drone-controllers) – Controllers for the Crazyflie quadrotor.  
 
 ---
 
@@ -68,7 +68,7 @@ The configuration files specify progressive difficulty levels from easy (0) to h
 ## Online Competition
 
 Throughout the semester, teams in the course will compete to achieve the fastest autonomous race completion times. 
-Competition results visible in the [competition branch](https://github.com/utiasDSL/lsy_drone_racing/tree/competition).
+Competition results visible in the [competition branch](https://github.com/learnsyslab/lsy_drone_racing/tree/competition).
 
 > **Note:** Competition results **do not** directly affect your course grade.  
 > However, they provide valuable feedback on the performance and robustness of your approach compared to others.

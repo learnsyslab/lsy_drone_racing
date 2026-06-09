@@ -91,8 +91,8 @@ def test_obs_returns_nominal_when_out_of_sensor_range():
     assert not bool(jp.any(obs["gates_visited"])), "no gate should be visited"
     assert not bool(jp.any(obs["obstacles_visited"])), "no obstacle should be visited"
 
-    nominal_gate_pos = env.unwrapped.data.nominal_gates_pos
-    nominal_obstacle_pos = np.asarray(env.unwrapped.data.nominal_obstacles_pos)
+    nominal_gate_pos = np.asarray(env.unwrapped.data.nominal_gates_pos[0])
+    nominal_obstacle_pos = np.asarray(env.unwrapped.data.nominal_obstacles_pos[0])
     np.testing.assert_allclose(np.asarray(obs["gates_pos"]), nominal_gate_pos, rtol=1e-5)
     np.testing.assert_allclose(np.asarray(obs["obstacles_pos"]), nominal_obstacle_pos, rtol=1e-5)
     env.close()
@@ -110,6 +110,41 @@ def test_obs_returns_real_pose_when_in_sensor_range():
     real_obstacles_pos = env.unwrapped.data.obstacles_pos[0]
     np.testing.assert_allclose(np.asarray(obs["gates_pos"]), real_gates_pos, rtol=1e-5)
     np.testing.assert_allclose(np.asarray(obs["obstacles_pos"]), real_obstacles_pos, rtol=1e-5)
+    env.close()
+
+
+@pytest.mark.unit
+def test_level3_nominal_positions_set_after_randomization():
+    """Full track randomization must populate nominal positions, not leave them zeroed from TOML.
+
+    In level 3 the gate/obstacle x,y coords in the TOML are all 0.0. After reset the nominal
+    positions must reflect the randomly generated layout, not those zeros.
+    """
+    env = make_env("level3.toml", sensor_range=0.0)
+    env.reset()
+    nominal_gates_pos = np.asarray(env.unwrapped.data.nominal_gates_pos)
+    nominal_obstacles_pos = np.asarray(env.unwrapped.data.nominal_obstacles_pos)
+    # After full-track randomization every gate/obstacle should have been moved
+    assert not np.all(nominal_gates_pos[..., :2] == 0.0), "nominal gate pos not updated"
+    assert not np.all(nominal_obstacles_pos[..., :2] == 0.0), "nominal obstacle pos not updated"
+    env.close()
+
+
+@pytest.mark.unit
+def test_level3_initial_obs_differs_from_real_positions():
+    """Level 3 initial obs must report nominal positions, which differ from actual (perturbed) ones.
+
+    With sensor_range=0 every gate is out of range, so obs reports nominal positions. Level 3 also
+    applies per-gate perturbation randomization on top of the full-track layout, so the real gate
+    positions differ from the nominal ones.
+    """
+    env = make_env("level3.toml", sensor_range=0.0)
+    env.reset()
+    obs, _ = env.reset()
+    assert not bool(np.any(obs["gates_visited"])), "no gate should be visited with sensor_range=0"
+    obs_gates_pos = np.asarray(obs["gates_pos"])
+    real_gates_pos = np.asarray(env.unwrapped.data.gates_pos[0])
+    assert not np.allclose(obs_gates_pos, real_gates_pos, atol=1e-6), "obs pos is using real pos"
     env.close()
 
 

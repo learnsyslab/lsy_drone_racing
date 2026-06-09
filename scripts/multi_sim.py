@@ -55,23 +55,15 @@ def simulate(
         render = config.sim.render
     else:
         config.sim.render = render
-    logger.warning(
-        "The simulation currently only supports running with one controller type and one set of "
-        "environment parameters (i.e. frequencies, control mode etc.). Only using the settings for "
-        "the first drone."
-    )
     # Load the controller modules
     control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
     if controllers is None:
         controller_names = [controller["file"] for controller in config.controller]
     else:
         controller_names = [controller.strip() for controller in controllers.split(",")]
-
-    controller_classes = [
-        load_controller(control_path / controller) for controller in controller_names
-    ]  # This returns a list of classes, not a list of instances
-
-    # Load in all controller frequencies and take the largest one as the environment baseline.
+    # This returns a list of classes, not a list of instances
+    controller_classes = [load_controller(control_path / name) for name in controller_names]
+    # Load in all controller frequencies and take the highest one as the environment baseline.
     controller_freqs = np.array([kwargs["freq"] for kwargs in config.env.kwargs], dtype=np.int64)
     base_freq = int(np.max(controller_freqs))
     periods = base_freq // controller_freqs  # Precompute the periods for each controller.
@@ -81,7 +73,7 @@ def simulate(
     # Create the racing environment
     env: MultiDroneRacingEnv = gymnasium.make(
         "MultiDroneRacing-v0",
-        freq=base_freq,  # create the env with the largest control frequency
+        freq=base_freq,  # create the env with the highest control frequency
         sim_config=config.sim,
         track=config.env.track,
         sensor_range=config.env.kwargs[0]["sensor_range"],
@@ -94,6 +86,7 @@ def simulate(
     env = JaxToNumpy(env)
     n_drones = env.unwrapped.sim.n_drones
     action_shape = env.action_space.shape[1]
+    fps = 60
 
     for _ in range(n_runs):  # Run n_runs episodes with the controllers
         obs, info = env.reset()
@@ -103,29 +96,23 @@ def simulate(
         for rank, cls in enumerate(controller_classes):
             ctrl_config = copy.deepcopy(config)
             ctrl_config.env.freq = np.int64(ctrl_config.env.kwargs[rank]["freq"])
-            controller_instances.append(cls(obs, {**info, "rank": rank}, ctrl_config))
+            controller_instances.append(cls(obs, info | {"rank": rank}, ctrl_config))
 
         finish_times = np.full(n_drones, np.nan, dtype=np.float32)
         controller_finished = np.full(n_drones, False, dtype=bool)
 
         i = 0
-        fps = 60
-
-        # Set default action to zeros only
         actions = np.zeros((n_drones, action_shape), dtype=np.float32)
 
         while True:
             curr_time = i / base_freq
 
-            ranked_infos = [{**info, "rank": rank} for rank in range(n_drones)]
+            ranked_infos = [info | {"rank": rank} for rank in range(n_drones)]
             disabled_drones = env.unwrapped.data.disabled_drones[0]
-
-            # Create mask for selecting the active controller
-            controller_mask = (i % periods) == 0
+            controller_mask = (i % periods) == 0  # Create mask for selecting the active controller
 
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
-                # Only compute action if drone is not disabled
-                if disabled_drones[rank]:
+                if disabled_drones[rank]:  # Only compute action if drone is not disabled
                     controller_finished[rank] = True
                     continue
                 if controller_mask[rank]:
@@ -147,6 +134,8 @@ def simulate(
             # Synchronize the GUI.
             if config.sim.render:
                 if ((i * fps) % base_freq) < fps:
+                    for ctrl in controller_instances:
+                        ctrl.render_callback(env.unwrapped.sim)
                     env.render()
             i += 1
             if terminated | truncated | controller_finished.all():
@@ -160,24 +149,20 @@ def simulate(
         for ctrl in controller_instances:
             ctrl.episode_callback()  # Update the controller internal state and models.
             ctrl.episode_reset()
-        log_episode_stats(obs, info, config, finish_times, controller_names)
+        log_episode_stats(obs, config, finish_times, controller_names)
 
     # Close the environment
     env.close()
 
 
 def log_episode_stats(
-    obs: dict, info: dict, config: ConfigDict, finish_times: np.ndarray, controller_names: list[str]
+    obs: dict, config: ConfigDict, finish_times: np.ndarray, controller_names: list[str]
 ):
     """Log the statistics of a single episode."""
     gates_passed = obs["target_gate"]
-    n_gates = len(config.env.track.gates)
-    gates_passed = np.where(gates_passed == -1, n_gates, gates_passed)
-    finished = gates_passed == n_gates
-
-    time_strings = [
-        "DNF" if np.isnan(finish_time) else f"{finish_time:.2f}" for finish_time in finish_times
-    ]
+    finished = gates_passed == -1
+    gates_passed = np.where(gates_passed == -1, len(config.env.track.gates), gates_passed)
+    time_strings = ["N/A" if np.isnan(t) else f"{t:.2f}" for t in finish_times]
     name_width = max(len("controller"), max(len(name) for name in controller_names))
     time_width = max(len("time [s]"), max(len(time_str) for time_str in time_strings))
     finished_width = len("finished")
@@ -192,7 +177,6 @@ def log_episode_stats(
             f"{controller_name:<{name_width}} | {time_strings[i]:>{time_width}} | "
             f"{str(finished[i]):>{finished_width}} | {gates_passed[i]:>{gates_width}}"
         )
-
     table = "\n".join(lines)
     logger.info(f"Episode stats:\n{table}\n")
 

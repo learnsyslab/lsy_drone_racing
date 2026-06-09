@@ -4,7 +4,7 @@ mkdir -p ros_ws/src
 
 if [ ! -d ros_ws/src/motion_capture_tracking/.git ]; then
   echo "[Pixi activation] Cloning motion_capture_tracking..."
-  git clone --recurse-submodules https://github.com/utiasDSL/motion_capture_tracking ros_ws/src/motion_capture_tracking
+  git clone --recurse-submodules https://github.com/learnsyslab/motion_capture_tracking ros_ws/src/motion_capture_tracking
 fi
 
 if [ ! -x ros_ws/install/motion_capture_tracking/lib/motion_capture_tracking/motion_capture_tracking_node ] || [ ! -d ros_ws/install/drone_racing_msgs ]; then

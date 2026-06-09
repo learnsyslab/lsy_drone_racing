@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 def create_acados_model(parameters: dict) -> AcadosModel:
     """Creates an acados model from a symbolic drone_model."""
-    # For more info on the models, check out https://github.com/utiasDSL/drone-models
+    # For more info on the models, check out https://github.com/learnsyslab/drone-models
     X_dot, X, U, _ = symbolic_dynamics_euler(
         mass=parameters["mass"],
         gravity_vec=parameters["gravity_vec"],

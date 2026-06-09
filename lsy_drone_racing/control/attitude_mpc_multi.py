@@ -28,13 +28,7 @@ class AttitudeMPC(SingleAttitudeMPC):
             config: The configuration of the environment.
         """
         self.rank = info["rank"]
-        obs = {
-            "pos": obs["pos"][self.rank],
-            "vel": obs["vel"][self.rank],
-            "quat": obs["quat"][self.rank],
-            "ang_vel": obs["ang_vel"][self.rank],
-        }
-        super().__init__(obs, info, config)
+        super().__init__({k: v[self.rank] for k, v in obs.items()}, info, config)
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -50,11 +44,4 @@ class AttitudeMPC(SingleAttitudeMPC):
             The orientation as roll, pitch, yaw angles, and the collective thrust
             [r_des, p_des, y_des, t_des] as a numpy array.
         """
-        obs = {
-            "pos": obs["pos"][self.rank],
-            "vel": obs["vel"][self.rank],
-            "quat": obs["quat"][self.rank],
-            "ang_vel": obs["ang_vel"][self.rank],
-        }
-
-        return super().compute_control(obs, info)
+        return super().compute_control({k: v[self.rank] for k, v in obs.items()}, info)
