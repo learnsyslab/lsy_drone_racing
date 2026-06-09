@@ -138,7 +138,6 @@ class RaceCommNode:
         self._thread.start()
         logger.debug(f"RaceCommNode '{name}' started")
 
-
     def close(self):
         """Shut down the executor and destroy the node."""
         self._executor.shutdown(timeout_sec=1.0)
