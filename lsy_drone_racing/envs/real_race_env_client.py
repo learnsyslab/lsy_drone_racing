@@ -302,7 +302,8 @@ class RealMultiDroneRaceEnvClient(Env):
 
         def on_host_ready(msg: RealHostReady):
             self._host_ready_event.set()
-            logger.debug(f"Host ready (latency: {time.time() - msg.timestamp:.2f}ms)")
+            latency_ms = (time.time() - msg.timestamp) * 1000
+            logger.debug(f"Host ready (latency: {latency_ms:.2f}ms)")
 
         def on_race_start(msg: RealRaceStart):
             self._race_started = True

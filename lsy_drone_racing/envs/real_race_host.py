@@ -170,7 +170,6 @@ class CrazyflieWorker:
             self.last_msg = msg
 
         latency_ms = (time.time() - msg.timestamp) * 1000
-
         self.logger.debug(f"Action received (gate={msg.next_gate_idx}, latency={latency_ms:.2f}ms)")
 
     def _connect_drone(self):
@@ -189,7 +188,7 @@ class CrazyflieWorker:
         cflib.crtp.init_drivers()
         uri = f"radio://{self.rank}/{self.drone_channel}/2M/E7E7E7E7{self.drone_id:02X}"
         PowerSwitch(uri).stm_power_cycle()
-        time.sleep(2)
+        time.sleep(3)
 
         def on_connected(_: str):
             self.connected = True
