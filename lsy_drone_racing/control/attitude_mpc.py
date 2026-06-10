@@ -183,11 +183,12 @@ class AttitudeMPC(Controller):
         self._dt = 1 / config.env.freq
         self._T_HORIZON = self._N * self._dt
 
-        # Same waypoints as in the trajectory controller. Determined by trial and error.
+        # Same waypoints as in the state controller. Determined by trial and error.
+        start_pos = obs["pos"]
         waypoints = np.array(
             [
-                [-1.5, 0.75, 0.05],
-                [-1.0, 0.55, 0.4],
+                start_pos,
+                [-1.0, 0.75, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],
                 [0.85, 0.85, 1.2],

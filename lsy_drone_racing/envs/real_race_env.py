@@ -449,11 +449,9 @@ class RealRaceCoreEnv:
         Irrespective of succeeding or not, the drone will be stopped immediately afterwards or in
         case of errors, and close the connections to the ROSConnector.
         """
-        if not self.data.drone_connected or not self.data.taken_off:
-            self._ros_connector.close()
-            return
         try:
-            self._return_to_start()
+            if self.data.taken_off:
+                self._return_to_start()
         finally:
             try:
                 # Kill the drone

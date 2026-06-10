@@ -4,9 +4,9 @@
 # | :-----------------: | :-----------------------: | :-------------------------: | :--------------------: | :---------------: |
 # | `level0.toml`       | *No*                      | *No*                        | *No*                   | Perfect knowledge |
 [[controller]]
-file = "state_controller.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
+file = "attitude_controller_multi.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
 [[controller]]
-file = "attitude_controller.py"
+file = "attitude_mpc_multi.py"
 
 [deploy]
 ### Settings only relevant for deployment
@@ -53,7 +53,7 @@ seed = -1               # -1 for random seeds or a non-zero integer for reproduc
 [[env.kwargs]]
 freq = 50               # Frequency of the environment's step function, in Hz
 sensor_range = 0.7      # Range at which the exact location of gates and obstacles become visible to the drone. Objects that are not in the drone's sensor range report their nominal position.
-control_mode = "state"  # Control mode of the environment. Can be either "state" or "attitude"
+control_mode = "attitude"  # Control mode of the environment. Can be either "state" or "attitude"
 [[env.kwargs]]
 freq = 100
 sensor_range = 0.7
@@ -83,7 +83,7 @@ rpy = [0.0, 0.0, 0.0]
 # Obstacle height: 1.52m + reflective marker on top. Height is measured from the ground to the top of the obstacle.
 # Obstacles are cylinders with a diameter of 0.03m.
 [[env.track.obstacles]]
-pos = [0.0, 0.75, 1.55]
+pos = [-1.5, 0.55, 0.01]
 [[env.track.obstacles]]
 pos = [1.0, 0.25, 1.55]
 [[env.track.obstacles]]
@@ -92,7 +92,7 @@ pos = [-1.5, -0.25, 1.55]
 pos = [-0.5, -0.75, 1.55]
 
 [[env.track.drones]]
-pos = [-1.5, 0.75, 0.01]
+pos = [-1.5, 0.95, 0.01]
 rpy = [0, 0, 0]
 vel = [0, 0, 0]
 ang_vel = [0, 0, 0]
@@ -107,6 +107,7 @@ ang_vel = [0, 0, 0]
 pos_limit_low = [-2.5, -1.5, -1e-3]
 pos_limit_high = [2.5, 1.5, 2.0]
 
+# We intentionally reduce the disturbances for the multi-drone scenario, so students can focus on the multi-drone aspect for now.
 [env.disturbances.action]
 fn = "normal"
 scale = 0.001
@@ -114,14 +115,14 @@ scale = 0.001
 [env.disturbances.dynamics]
 fn = "uniform"
 [env.disturbances.dynamics.kwargs]
-minval = [-0.1, -0.1, -0.1]
-maxval = [0.1, 0.1, 0.1]
+minval = [-0.02, -0.02, -0.02]
+maxval = [0.02, 0.02, 0.02]
 
 [env.randomizations.drone_pos]
 fn = "uniform"
 [env.randomizations.drone_pos.kwargs]
-minval = [-0.1, -0.1, 0.0]
-maxval = [0.1, 0.1, 0.02]
+minval = [-0.02, -0.02, 0.0]
+maxval = [0.02, 0.02, 0.02]
 
 [env.randomizations.drone_rpy]
 fn = "uniform"
@@ -132,8 +133,8 @@ maxval = [0.1, 0.1, 0.1]
 [env.randomizations.drone_mass]
 fn = "uniform"
 [env.randomizations.drone_mass.kwargs]
-minval = -0.005
-maxval = 0.005
+minval = -0.002
+maxval = 0.002
 
 [env.randomizations.drone_inertia]
 fn = "uniform"
@@ -144,17 +145,17 @@ maxval = [0.000001, 0.000001, 0.000001]
 [env.randomizations.gate_pos]
 fn = "uniform"
 [env.randomizations.gate_pos.kwargs]
-minval = [-0.15, -0.15, -0.1]
-maxval = [0.15, 0.15, 0.1]
+minval = [-0.02, -0.02, -0.01]
+maxval = [0.02, 0.02, 0.01]
 
 [env.randomizations.gate_rpy]
 fn = "uniform"
 [env.randomizations.gate_rpy.kwargs]
-minval = [-0.05, -0.1, -0.2]
-maxval = [0.05, 0.1, 0.2]
+minval = [-0.01, -0.01, -0.01]
+maxval = [0.01, 0.01, 0.01]
 
 [env.randomizations.obstacle_pos]
 fn = "uniform"
 [env.randomizations.obstacle_pos.kwargs]
-minval = [-0.15, -0.15, -0.05]
-maxval = [0.15, 0.15, 0.05]
+minval = [-0.02, -0.02, -0.01]
+maxval = [0.02, 0.02, 0.01]

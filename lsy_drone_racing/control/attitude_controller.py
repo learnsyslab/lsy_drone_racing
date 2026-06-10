@@ -50,11 +50,12 @@ class AttitudeController(Controller):
         self.i_error = np.zeros(3)
         self.g = 9.81
 
-        # Same waypoints as in the position controller. Determined by trial and error.
+        # Same waypoints as in the state controller. Determined by trial and error.
+        start_pos = obs["pos"]
         waypoints = np.array(
             [
-                [-1.5, 0.75, 0.05],
-                [-1.0, 0.55, 0.4],
+                start_pos,
+                [-1.0, 0.75, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],
                 [0.9, 0.7, 1.2],
@@ -65,7 +66,7 @@ class AttitudeController(Controller):
                 [0.5, -0.75, 1.2],
             ]
         )
-        self._t_total = 15  # s
+        self._t_total = 18  # s
         t = np.linspace(0, self._t_total, len(waypoints))
         self._des_pos_spline = CubicSpline(t, waypoints)
         self._des_vel_spline = self._des_pos_spline.derivative()
