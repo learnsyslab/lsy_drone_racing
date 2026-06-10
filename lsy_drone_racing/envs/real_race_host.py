@@ -353,7 +353,7 @@ class CrazyflieWorker:
 
         SIGINT is ignored so that only the host process handles keyboard interrupts.
         """
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ignore SIGINT in worker processes
         CrazyflieWorker(
             rank=rank,
             drone_id=drone_id,

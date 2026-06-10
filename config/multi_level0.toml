@@ -1,8 +1,8 @@
 # Level 0
 
-# | Evaluation Scenario | Rand. Inertial Properties | Randomized Obstacles, Gates | Rand. Between Episodes | Notes             |
-# | :-----------------: | :-----------------------: | :-------------------------: | :--------------------: | :---------------: |
-# | `level0.toml`       | *No*                      | *No*                        | *No*                   | Perfect knowledge |
+# | Evaluation Scenario | Randomized Inertial Properties | Randomized Obstacles, Gates | Randomized Tracks | Notes             |
+# | :-----------------: | :----------------------------: | :-------------------------: | :---------------: | :---------------: |
+# | `level0.toml`       | *No*                           | *No*                        | *No*              | Perfect knowledge |
 [[controller]]
 file = "attitude_controller_multi.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
 [[controller]]  # Add the controller files for each drone
@@ -35,11 +35,10 @@ drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2
 # "so_rpy_rotor": Simplified identified model with rotor dynamics.
 # "so_rpy_rotor_drag": Simplified identified model with rotor dynamics and drag.
 physics = "first_principles"
-drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
-camera_view = [5.0, 180.0, -25.0, 0.0, 0.0, 0.0] # Camera view [distance, azimuth, elevation, lookat_x, lookat_y, lookat_z]
-attitude_freq = 500                               # Controller frequency, in Hz. This frequency is used to simulate the onboard controller, NOT for the environment's step function
-render = false                                       # Enable/disable PyBullet's GUI
+drone_model = "cf21B_500"       # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
 freq = 500                      # Simulation frequency, in Hz
+attitude_freq = 500             # Controller frequency, in Hz. This frequency is used to simulate the onboard controller, NOT for the environment's step function
+render = true                   # Enable/disable Crazyflow's GUI
 camera = -1                     # camera id or name, i.e., drone cam ids start at 0, cam names are "fpv_cam:0" or "track_cam:0", where the number is the drone id
 [[sim.cam_config]]              # only used if camera == -1, i.e., world view is activated
 distance = 5.0

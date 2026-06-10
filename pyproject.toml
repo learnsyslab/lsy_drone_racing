@@ -69,7 +69,6 @@ compilers = ">=1.9.0, <1.11.0"
 cmake = "==3.26.0"  # Pinned for motion_capture_tracking
 make = "==4.4.1"  # Pinned for motion_capture_tracking
 openblas = ">=0.3.30,<0.4"
-packaging = "<26"
 lark = ">=1.3.1"  # Pinned to suppress deprecation warning
 
 [tool.pixi.pypi-dependencies]
@@ -176,7 +175,7 @@ ignore = ["ANN401"]
 fixable = ["ALL"]
 unfixable = []
 
-[tool.ruff.lint.isort]
+[tool.ruff.lint.isort]  # Prevent ruff from reporting conflicting settings with isort
 split-on-trailing-comma = false
 
 [tool.ruff.lint.per-file-ignores]
