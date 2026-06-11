@@ -40,6 +40,7 @@ sim = [
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
+    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git",
     "cfclient",
     "drone-estimators",
 ]
@@ -110,6 +111,12 @@ ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 
 [tool.pixi.feature.kilted.activation]
 scripts = ["tools/setup_mocap.sh"]
+
+## feature [deploy]
+[tool.pixi.feature.deploy.dependencies]
+packaging = ">=24,<26"  # Necessary for cflib2
+maturin = ">=1.13.3,<2"
+rust = ">=1.95.0,<1.96"
 
 ## feature [tests]
 [tool.pixi.feature.tests.tasks]

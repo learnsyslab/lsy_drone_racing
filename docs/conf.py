@@ -27,7 +27,16 @@ add_module_names = False
 autodoc_member_order = "bysource"
 
 # Mock imports on ReadTheDocs that are not available with pip or that we do not want to install
-autodoc_mock_imports = ["cflib", "crazyflow", "drone_models", "drone_estimators", "torch", "rclpy", "mujoco", "acados_template"]
+autodoc_mock_imports = [
+    "cflib2",
+    "crazyflow",
+    "drone_models",
+    "drone_estimators",
+    "torch",
+    "rclpy",
+    "mujoco",
+    "acados_template",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
