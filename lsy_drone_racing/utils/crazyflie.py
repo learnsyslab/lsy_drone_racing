@@ -148,7 +148,7 @@ class RacingCrazyflie:
         return_height: float = 1.75,
         breaking_distance: float = 1.0,
         breaking_duration: float = 3.0,
-        return_duration: float = 7.0,
+        return_duration: float = 5.0,
         land_duration: float = 3.0,
     ) -> None:
         """Return to a start position using the high-level commander."""
