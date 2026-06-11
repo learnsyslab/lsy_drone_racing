@@ -8,11 +8,14 @@ This is intentionally a script, not a pytest test. Run it from a deploy shell wi
 from __future__ import annotations
 
 import argparse
+import logging
 import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,6 +64,7 @@ def state_circle(
     target = center.copy()
     target[2] = height
 
+    logger.info("Taking off with state commands to %.2f m.", height)
     t_start = time.perf_counter()
     for step in range(steps):
         alpha = (step + 1) / steps
@@ -71,6 +75,7 @@ def state_circle(
         sleep_step(t_start, step, freq)
 
     steps = int(circle_duration * freq)
+    logger.info("Flying state-command circle with %.2f m radius.", radius)
     t_start = time.perf_counter()
     for step in range(steps):
         theta = 2 * np.pi * step / steps
@@ -80,43 +85,96 @@ def state_circle(
         drone.send_action(action, control_mode="state", drone_parameters=drone_params)
         drone.send_external_pose()
         sleep_step(t_start, step, freq)
+    logger.info("Finished state-command circle.")
 
 
-def attitude_circle(drone: Any, drone_params: dict[str, float], freq: float) -> None:
-    """Take off and fly one small open-loop attitude-command circle."""
+def override_attitude_reference(
+    controller: Any,
+    start: np.ndarray,
+    height: float,
+    radius: float,
+    takeoff_duration: float,
+    circle_duration: float,
+) -> None:
+    """Overwrite the attitude controller reference with the smoke-test circle."""
+    target = start.copy()
+    target[2] = height
+    omega = 2 * np.pi / circle_duration
+
+    def des_pos(t: float) -> np.ndarray:
+        if t < takeoff_duration:
+            alpha = np.clip(t / takeoff_duration, 0.0, 1.0)
+            return (1 - alpha) * start + alpha * target
+
+        theta = omega * (t - takeoff_duration)
+        return target + np.array([radius * np.cos(theta), radius * np.sin(theta), 0.0])
+
+    def des_vel(t: float) -> np.ndarray:
+        if t < takeoff_duration:
+            return (target - start) / takeoff_duration
+
+        theta = omega * (t - takeoff_duration)
+        return np.array([-radius * omega * np.sin(theta), radius * omega * np.cos(theta), 0.0])
+
+    controller._des_pos_spline = des_pos
+    controller._des_vel_spline = des_vel
+    controller._t_total = takeoff_duration + circle_duration
+    controller._tick = 0
+    controller._finished = False
+
+
+def attitude_circle(
+    drone: Any,
+    obs_connector: Any,
+    drone_name: str,
+    drone_params: dict[str, float],
+    controller: Any,
+    height: float,
+    radius: float,
+    freq: float,
+) -> None:
+    """Take off and fly one small circle with the attitude controller."""
     takeoff_duration = 2.0
     circle_duration = 4.0
-    hover_thrust = drone_params["mass"] * 9.81
-    steps = int(takeoff_duration * freq)
+    start = obs_connector.pos[drone_name].copy()
+    override_attitude_reference(
+        controller, start, height, radius, takeoff_duration, circle_duration
+    )
+    controller._freq = freq
 
+    logger.info("Taking off with attitude controller to %.2f m.", height)
+    steps = int(takeoff_duration * freq)
     t_start = time.perf_counter()
     for step in range(steps):
-        alpha = (step + 1) / steps
-        thrust = hover_thrust * (1.15 - 0.1 * alpha)
-        action = np.array([0.0, 0.0, 0.0, thrust], dtype=np.float32)
+        obs = current_obs(obs_connector, drone_name)
+        action = controller.compute_control(obs).astype(np.float32)
         drone.send_action(action, control_mode="attitude", drone_parameters=drone_params)
         drone.send_external_pose()
+        controller.step_callback(action, obs, 0.0, False, False, {})
         sleep_step(t_start, step, freq)
 
+    logger.info("Flying attitude-controller circle with %.2f m radius.", radius)
     steps = int(circle_duration * freq)
     t_start = time.perf_counter()
     for step in range(steps):
-        theta = 2 * np.pi * step / steps
-        action = np.array(
-            [0.08 * np.sin(theta), 0.08 * np.cos(theta), 0.0, hover_thrust], dtype=np.float32
-        )
+        obs = current_obs(obs_connector, drone_name)
+        action = controller.compute_control(obs).astype(np.float32)
         drone.send_action(action, control_mode="attitude", drone_parameters=drone_params)
         drone.send_external_pose()
+        controller.step_callback(action, obs, 0.0, False, False, {})
         sleep_step(t_start, step, freq)
+    logger.info("Finished attitude-controller circle.")
 
 
 def stream_external_pose(drone: Any, duration: float, freq: float) -> None:
     """Stream external pose while high-level commands are running."""
     steps = int(duration * freq)
+    logger.info("Streaming external pose for %.1f s.", duration)
     t_start = time.perf_counter()
     for step in range(steps):
         drone.send_external_pose()
         sleep_step(t_start, step, freq)
+    logger.info("Finished streaming external pose.")
 
 
 def main() -> None:
@@ -125,10 +183,13 @@ def main() -> None:
     from drone_estimators.ros_nodes.ros2_connector import ROSConnector
     from drone_models.core import load_params
 
+    from lsy_drone_racing.control.attitude_controller import AttitudeController
     from lsy_drone_racing.utils import load_config
     from lsy_drone_racing.utils.crazyflie import RacingCrazyflie
 
     args = parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+    logger.info("Loading deployment config from %s.", args.config)
     config = load_config(Path(args.config))
     drone_config = config.deploy.drones[args.rank]
     drone_name = f"cf{drone_config['id']}"
@@ -136,8 +197,15 @@ def main() -> None:
     home_pos = np.array(config.env.track.drones[args.rank]["pos"], dtype=np.float32)
     drone_params = load_params("first_principles", drone_config["drone_model"])
 
+    logger.info("Initializing ROS for %s.", drone_name)
     rclpy.init()
-    obs_connector = ROSConnector(tf_names=[drone_name], timeout=10.0)
+    obs_connector = ROSConnector(estimator_names=[drone_name], timeout=10.0)
+    logger.info(
+        "Creating Crazyflie wrapper for %s on radio %d, channel %d.",
+        drone_name,
+        radio_id,
+        drone_config["channel"],
+    )
     drone = RacingCrazyflie.from_radio(
         radio_id=radio_id,
         radio_channel=drone_config["channel"],
@@ -145,6 +213,7 @@ def main() -> None:
         drone_name=drone_name,
     )
     try:
+        logger.info("Connecting and resetting for state-command test.")
         drone.connect_and_reset()
         state_circle(
             drone,
@@ -154,21 +223,41 @@ def main() -> None:
             args.radius,
             args.freq,
         )
+        logger.info("Returning to start after state-command test.")
         drone.return_to_start(home_pos, current_obs(obs_connector, drone_name), check_ok=rclpy.ok)
+        logger.info("Finished state-command test.")
 
+        logger.info("Connecting and resetting for attitude-command test.")
         drone.connect_and_reset(unlock_thrust=True)
-        attitude_circle(drone, drone_params, args.freq)
+        attitude_controller = AttitudeController(current_obs(obs_connector, drone_name), {}, config)
+        attitude_circle(
+            drone,
+            obs_connector,
+            drone_name,
+            drone_params,
+            attitude_controller,
+            args.height,
+            args.radius,
+            args.freq,
+        )
+        logger.info("Returning to start after attitude-command test.")
         drone.return_to_start(home_pos, current_obs(obs_connector, drone_name), check_ok=rclpy.ok)
+        logger.info("Finished attitude-command test.")
 
+        logger.info("Connecting and resetting for high-level goto test.")
         drone.connect_and_reset()
         target = obs_connector.pos[drone_name].copy()
         target[2] = args.height
+        logger.info("Sending high-level goto to %s.", np.array2string(target, precision=3))
         drone.go_to(target, duration=3.0)
         stream_external_pose(drone, 1.5, args.freq)
+        logger.info("Sending emergency stop.")
         drone.emergency_stop()
         time.sleep(0.2)
+        logger.info("Deployment smoke test finished.")
     finally:
-        drone.close(emergency_stop=False)
+        logger.info("Cleaning up.")
+        drone.close(emergency_stop=True)
         obs_connector.close()
         rclpy.shutdown()
 

@@ -40,7 +40,6 @@ class RacingCrazyflie:
         self,
         uri: str,
         drone_name: str,
-        *,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
     ):
@@ -74,7 +73,6 @@ class RacingCrazyflie:
         radio_id: int,
         radio_channel: int,
         drone_id: int,
-        *,
         drone_name: str | None = None,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
@@ -97,7 +95,7 @@ class RacingCrazyflie:
         """Return whether commands can still be sent to the Crazyflie."""
         return self.is_connected
 
-    def connect_and_reset(self, *, timeout: float = 10.0, unlock_thrust: bool = False) -> None:
+    def connect_and_reset(self, timeout: float = 10.0, unlock_thrust: bool = False) -> None:
         """Connect, apply race settings, arm, reset the estimator, and optionally unlock thrust."""
         self._run(self._connect(timeout))
         self._run(self._apply_settings())
@@ -113,7 +111,6 @@ class RacingCrazyflie:
     def send_action(
         self,
         action: NDArray[np.floating],
-        *,
         control_mode: Literal["state", "attitude"],
         drone_parameters: dict[str, float],
         publish_to_ros: bool = True,
@@ -147,7 +144,6 @@ class RacingCrazyflie:
         self,
         return_pos: NDArray[np.floating],
         initial_obs: dict[str, NDArray[np.floating]],
-        *,
         check_ok: Callable[[], bool] | None = None,
         return_height: float = 1.75,
         breaking_distance: float = 1.0,
@@ -190,7 +186,6 @@ class RacingCrazyflie:
         pos: NDArray[np.floating],
         yaw: float = 0.0,
         duration: float = 3.0,
-        *,
         linear: bool = False,
     ) -> None:
         """Send a high-level goto command."""
@@ -200,7 +195,7 @@ class RacingCrazyflie:
         """Send the Crazyflie emergency stop command."""
         self._run_command("Emergency stop", self._emergency_stop())
 
-    def close(self, *, emergency_stop: bool = True) -> None:
+    def close(self, emergency_stop: bool = True) -> None:
         """Emergency-stop, disconnect, and close the cflib2 event loop."""
         if self._closed:
             return
@@ -254,27 +249,35 @@ class RacingCrazyflie:
             raise RuntimeError("Crazyflie wrapper is already closed.")
         if self.is_connected:
             return
-        if self.power_cycle_on_connect:
+
+        async def _power_cycle(uri: str) -> None:
             try:
-                await CflibCrazyflie.power_off_stm32_domain(self.context, self.uri)
+                await CflibCrazyflie.power_off_stm32_domain(self.context, uri)
                 await asyncio.sleep(0.1)
-                await CflibCrazyflie.power_on_stm32_domain(self.context, self.uri)
+                await CflibCrazyflie.power_on_stm32_domain(self.context, uri)
             except CrazyflieError as exc:
-                logger.warning(f"Power cycling {self.uri} failed: {exc}")
+                logger.warning(f"Power cycling {uri} failed: {exc}")
+
+        if self.power_cycle_on_connect:
+            await asyncio.gather(_power_cycle(self.uri))
             await asyncio.sleep(_POWER_CYCLE_BOOT_WAIT)
 
         logger.info(f"Connecting to Crazyflie at {self.uri}...")
-        try:
-            self.cf = await asyncio.wait_for(
+        results = await asyncio.gather(
+            asyncio.wait_for(
                 CflibCrazyflie.connect_from_uri(self.context, self.uri, self.toc_cache),
                 timeout=timeout,
-            )
-        except BaseException:
+            ),
+            return_exceptions=True,
+        )
+        result = results[0]
+        if isinstance(result, BaseException):
             self.cf = None
             self.active = False
             self._commander_level = None
-            raise
+            raise RuntimeError(f"Connecting to Crazyflie failed: {self.uri}: {result}") from result
 
+        self.cf = result
         self.active = True
         logger.info(f"Crazyflie connected to {self.uri}")
 
@@ -346,7 +349,7 @@ class RacingCrazyflie:
         await self._change_commander_level("high")
 
     async def _go_to(
-        self, pos: NDArray[np.floating], yaw: float, duration: float, *, linear: bool
+        self, pos: NDArray[np.floating], yaw: float, duration: float, linear: bool = False
     ) -> None:
         await self._change_commander_level("high")
         await (
@@ -357,6 +360,7 @@ class RacingCrazyflie:
 
     async def _arm(self) -> None:
         await self._cf().platform().send_arming_request(do_arm=True)
+        await asyncio.sleep(0.8)
 
     async def _emergency_stop(self) -> None:
         await self._cf().localization().emergency().send_emergency_stop()
