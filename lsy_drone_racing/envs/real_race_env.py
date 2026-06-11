@@ -78,7 +78,6 @@ class RealRaceCoreEnv:
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
-        publish_ros_cmd: bool = True,
     ):
         """Create a deployable version of the drone racing environment.
 
@@ -91,7 +90,6 @@ class RealRaceCoreEnv:
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
-            publish_ros_cmd: Whether to publish attitude commands to ROS for the estimator.
         """
         assert rclpy.ok(), "ROS2 is not running. Please start ROS2 before creating a deploy env."
         # Static env data
@@ -109,7 +107,6 @@ class RealRaceCoreEnv:
         self.device = jax.devices("cpu")[0]
         assert control_mode in ["state", "attitude"], f"Invalid control mode {control_mode}"
         self.control_mode = control_mode
-        self.publish_ros_cmd = publish_ros_cmd
         self.randomizations = randomizations
         drone_config = drones[rank]
         self.drone_parameters = load_params("first_principles", drone_config["drone_model"])
@@ -164,7 +161,7 @@ class RealRaceCoreEnv:
             action,
             control_mode=self.control_mode,
             drone_parameters=self.drone_parameters,
-            publish_to_ros=self.publish_ros_cmd,
+            publish_to_ros=True,
         )
 
         drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
@@ -349,7 +346,6 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
-        publish_ros_cmd: bool = True,
     ):
         """Initialize the multi-drone environment.
 
@@ -375,7 +371,6 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
-            publish_ros_cmd: Whether to publish attitude commands to ROS for the estimator.
         """
         super().__init__(
             drones=drones,
@@ -385,7 +380,6 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
             randomizations=randomizations,
             sensor_range=sensor_range,
             control_mode=control_mode,
-            publish_ros_cmd=publish_ros_cmd,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
@@ -456,7 +450,6 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
-        publish_ros_cmd: bool = True,
     ):
         """Initialize the multi-drone environment.
 
@@ -469,7 +462,6 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
-            publish_ros_cmd: Whether to publish attitude commands to ROS for the estimator.
         """
         super().__init__(
             drones=drones,
@@ -479,7 +471,6 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             randomizations=randomizations,
             sensor_range=sensor_range,
             control_mode=control_mode,
-            publish_ros_cmd=publish_ros_cmd,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
