@@ -136,8 +136,8 @@ class RacingCrazyflie:
             self._run_command(
                 "Position setpoint", self._send_position_setpoint(action[:3], action[9])
             )
-            # We don't publish the state command to ros, since the estimator only handles 4D commands
-            # TODO Maybe we should publish pos+yaw commands, which might be interesting for debugging
+            # We don't publish the state command to ros, since the estimator only handles 4D arrays
+            # TODO Maybe we should publish pos+yaw commands, could be interesting for debugging
             return
 
         raise ValueError(f"Invalid control mode: {control_mode}")
