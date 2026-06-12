@@ -40,7 +40,7 @@ class AttitudeRL(Controller):
         super().__init__(obs, info, config)
         self.freq = config.env.freq
 
-        # For more info on the models, check out https://github.com/utiasDSL/drone-models
+        # For more info on the models, check out https://github.com/learnsyslab/drone-models
         drone_params = load_params(config.sim.physics, config.sim.drone_model)
         self.drone_mass = drone_params["mass"]
         self.thrust_min = drone_params["thrust_min"] * 4  # min total thrust

@@ -10,7 +10,7 @@ on:
 jobs:
   online-competition:
     # Skip this job if running on the main repo to prevent failing CI/CD. Only run on student forks.
-    if: ${{ github.repository != 'utiasDSL/lsy_drone_racing' }}
+    if: ${{ github.repository != 'learnsyslab/lsy_drone_racing' }}
 
     runs-on: ubuntu-latest
 
@@ -24,7 +24,7 @@ jobs:
           
           # 1. Trigger the workflow with inputs
           gh workflow run competition.yaml \
-            --repo utiasDSL/lsy_drone_racing \
+            --repo learnsyslab/lsy_drone_racing \
             --ref competition \
             -f repository="${{ github.repository }}" \
             -f sha="${{ github.sha }}" \
@@ -35,7 +35,7 @@ jobs:
           
           # 2. Fetch the ID of the run that was just created
           RUN_ID=$(gh run list \
-            --repo utiasDSL/lsy_drone_racing \
+            --repo learnsyslab/lsy_drone_racing \
             --workflow "competition.yaml" \
             --json databaseId \
             --jq '.[0].databaseId')
@@ -46,10 +46,10 @@ jobs:
           fi
           
           echo "✅ Evaluation started! Watching Run ID: $RUN_ID"
-          echo "🔗 You can view the live central logs here: https://github.com/utiasDSL/lsy_drone_racing/actions/runs/$RUN_ID"
+          echo "🔗 You can view the live central logs here: https://github.com/learnsyslab/lsy_drone_racing/actions/runs/$RUN_ID"
           
           # 3. Watch the run until it finishes. 
           # The --exit-status flag ensures that if the central evaluation fails, this student job fails too!
           gh run watch $RUN_ID \
-            --repo utiasDSL/lsy_drone_racing \
+            --repo learnsyslab/lsy_drone_racing \
             --exit-status

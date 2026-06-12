@@ -21,7 +21,7 @@ Required Repositories
 
 The LSY Autonomous Drone Racing project requires you to fork the drone racing repository:
 
-`lsy_drone_racing <https://github.com/utiasDSL/lsy_drone_racing>`_ (main branch)
+`lsy_drone_racing <https://github.com/learnsyslab/lsy_drone_racing>`_ (main branch)
 
 This repository contains the drone simulation, environments, and scripts to simulate and deploy the drones in the racing challenge.
 
@@ -30,18 +30,18 @@ Depending on if you want to use the simulation only or also deploy on real drone
 In Simulation
 ~~~~~~~~~~~~~
 
-- `lsy_drone_racing <https://github.com/utiasDSL/lsy_drone_racing>`_ – environments and scripts for simulation and deployment
-- `crazyflow <https://github.com/utiasDSL/crazyflow>`_ – drone simulator
-- `drone-models <https://github.com/utiasDSL/drone-models>`_ – Crazyflie dynamics models
-- `drone-controllers <https://github.com/utiasDSL/drone-controllers>`_ – controller implementations
+- `lsy_drone_racing <https://github.com/learnsyslab/lsy_drone_racing>`_ – environments and scripts for simulation and deployment
+- `crazyflow <https://github.com/learnsyslab/crazyflow>`_ – drone simulator
+- `drone-models <https://github.com/learnsyslab/drone-models>`_ – Crazyflie dynamics models
+- `drone-controllers <https://github.com/learnsyslab/drone-controllers>`_ – controller implementations
 
 On Hardware
 ~~~~~~~~~~~~
 
 To run the project on real drones, add:
 
-- `motion_capture_tracking <https://github.com/utiasDSL/motion_capture_tracking>`_ – publishes motion capture data to ROS2
-- `drone-estimators <https://github.com/utiasDSL/drone-estimators>`_ – drone state estimators
+- `motion_capture_tracking <https://github.com/learnsyslab/motion_capture_tracking>`_ – publishes motion capture data to ROS2
+- `drone-estimators <https://github.com/learnsyslab/drone-estimators>`_ – drone state estimators
 
 Step-by-Step Installation
 -------------------------
@@ -49,7 +49,7 @@ Step-by-Step Installation
 Fork lsy_drone_racing
 ~~~~~~~~~~~~~~~~~~~~~
 
-Start by forking the `lsy_drone_racing <https://github.com/utiasDSL/lsy_drone_racing>`_ repository for your own group. This serves two purposes:
+Start by forking the `lsy_drone_racing <https://github.com/learnsyslab/lsy_drone_racing>`_ repository for your own group. This serves two purposes:
 
 1. You'll have your own repository with git version control and automated testing.
 2. It sets you up for participating in the :doc:`online competition <../challenge/online_competition>`.
@@ -246,7 +246,7 @@ Development
 Work on Existing Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to do more in-depth development or understand the used packages (`crazyflow <https://github.com/utiasDSL/crazyflow>`_, `drone-models <https://github.com/utiasDSL/drone-models>`_, `drone-controllers <https://github.com/utiasDSL/drone-controllers>`_, `drone-estimators <https://github.com/utiasDSL/drone-estimators>`_) better, you can fork and install all of those packages separately in editable mode. If you find bugs or other have improvements, feel free to `submit a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_ or `create an issue <https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue>`_ to help us improve the code. The installation procedure is the same for all packages:
+If you want to do more in-depth development or understand the used packages (`crazyflow <https://github.com/learnsyslab/crazyflow>`_, `drone-models <https://github.com/learnsyslab/drone-models>`_, `drone-controllers <https://github.com/learnsyslab/drone-controllers>`_, `drone-estimators <https://github.com/learnsyslab/drone-estimators>`_) better, you can fork and install all of those packages separately in editable mode. If you find bugs or other have improvements, feel free to `submit a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_ or `create an issue <https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue>`_ to help us improve the code. The installation procedure is the same for all packages:
 
 .. code-block:: bash
 

@@ -46,7 +46,7 @@ html_theme = "sphinx_book_theme"
 html_logo = "img/banner.jpeg"
 html_favicon = "img/banner.jpeg"
 html_theme_options = {
-    "repository_url": "https://github.com/utiasDSL/lsy_drone_racing",
+    "repository_url": "https://github.com/learnsyslab/lsy_drone_racing",
     "use_repository_button": True,
 }
 
