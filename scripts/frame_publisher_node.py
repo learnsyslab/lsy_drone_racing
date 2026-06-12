@@ -31,13 +31,13 @@ class NominalFramePublisherNode(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
 
     def _load_config(self, config_name: str) -> Any:
-        config_path = Path(__file__).resolve().parents[5] / "config" / config_name
+        config_path = Path(__file__).resolve().parents[1] / "config" / config_name
         return load_config(config_path)
 
     def get_poses(self) -> tuple[list[tuple[list[float], list[float]]], list[list[float]]]:
         """Return the nominal gate and obstacle poses from the configuration."""
         gate_poses = [
-            (gate["pos"], R.from_euler("xyz", gate["rpy"]).as_quat().tolist())
+            (gate["pos"], (R.from_euler("xyz", gate["rpy"]) * R.from_euler("xyz", [0, 1.5708, 0]) ).as_quat().tolist())
             for gate in self.config.env.track.gates
         ]
         obstacle_poses = [obstacle["pos"] for obstacle in self.config.env.track.obstacles]
@@ -96,6 +96,7 @@ class NominalFramePublisherNode(Node):
 
         obstacle_offset = len(gate_poses)
         for index, position in enumerate(obstacle_poses):
+            position[2] = 1.52/2
             msg.markers.append(
                 self._make_marker(
                     marker_id=obstacle_offset + index,
