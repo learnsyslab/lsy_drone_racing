@@ -62,6 +62,7 @@ class Crazyflie:
 
         self._cf: CflibCrazyflie | None = None
         self._commander_level: Literal["low", "high"] | None = None
+        self._state_setpoint_fallback_warned = False
         self._loop = asyncio.new_event_loop()
 
     @classmethod
@@ -131,7 +132,7 @@ class Crazyflie:
         yaw: float | None = None,
         body_rates: NDArray[np.floating] | None = None,
     ) -> None:
-        """Send a full-state command with yaw-only orientation."""
+        """Send a state command with yaw-only orientation."""
         if vel is None:
             vel = np.zeros(3)
         if acc is None:
@@ -318,8 +319,18 @@ class Crazyflie:
         body_rates: NDArray[np.floating],
     ) -> None:
         await self._change_commander_level("low")
-        await self.cf.commander().send_setpoint_full_state(
-            pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
+        # TODO use full state setpoint once cflib2 supports it
+        if not self._state_setpoint_fallback_warned:
+            logger.warning(
+                "cflib2 does not expose a full-state commander setpoint. "
+                "Falling back to position/yaw setpoints and ignoring velocity, "
+                "acceleration, and body-rate feed-forward."
+            )
+            self._state_setpoint_fallback_warned = True
+
+        yaw = R.from_quat(quat).as_euler("xyz", degrees=True)[2]
+        await self.cf.commander().send_setpoint_position(
+            float(pos[0]), float(pos[1]), float(pos[2]), float(yaw)
         )
 
     async def _stop_setpoint(self) -> None:
