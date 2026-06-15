@@ -319,18 +319,8 @@ class Crazyflie:
         body_rates: NDArray[np.floating],
     ) -> None:
         await self._change_commander_level("low")
-        # TODO use full state setpoint once cflib2 supports it
-        if not self._state_setpoint_fallback_warned:
-            logger.warning(
-                "cflib2 does not expose a full-state commander setpoint. "
-                "Falling back to position/yaw setpoints and ignoring velocity, "
-                "acceleration, and body-rate feed-forward."
-            )
-            self._state_setpoint_fallback_warned = True
-
-        yaw = R.from_quat(quat).as_euler("xyz", degrees=True)[2]
-        await self.cf.commander().send_setpoint_position(
-            float(pos[0]), float(pos[1]), float(pos[2]), float(yaw)
+        await self.cf.commander().send_setpoint_full_state(
+            pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
         )
 
     async def _stop_setpoint(self) -> None:
