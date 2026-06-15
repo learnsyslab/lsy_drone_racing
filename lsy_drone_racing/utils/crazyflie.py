@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 from cflib2 import Crazyflie as CflibCrazyflie
 from cflib2 import LinkContext
-from cflib2.error import CrazyflieError, DisconnectedError, LinkError, TimeoutError
+from cflib2.error import CrazyflieError
 from cflib2.toc_cache import FileTocCache
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from drone_models.transform import force2pwm
@@ -25,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["Crazyflie"]
 
-_DISCONNECT_ERRORS = (DisconnectedError, LinkError, TimeoutError)
-_POWER_CYCLE_BOOT_WAIT = 3.0
+_POWER_CYCLE_BOOT_WAIT = 3.0  # 3 seconds is sufficient for a reboot
 
 
 class Crazyflie:
@@ -91,21 +90,19 @@ class Crazyflie:
 
     def connect(self, timeout: float = 10.0) -> None:
         """Connect to the Crazyflie."""
-        if self._loop.is_closed():
-            raise RuntimeError("Crazyflie wrapper is already closed.")
-        self._run(self._connect(timeout))
+        self._run(self._connect, timeout)
 
     def reset(self, arm: bool = False) -> None:
         """Apply race settings, reset the estimator, and optionally arm the drone."""
-        self._run(self._apply_settings())
-        self._run(self._reset_estimator())
+        self._run(self._apply_settings)
+        self._run(self._reset_estimator)
         if arm:
-            self._run(self._arm())
-            self._run_command("Unlocking thrust", self._unlock_thrust())
+            self._run(self._arm)
+            self._run(self._unlock_thrust)
 
     def send_external_pose(self) -> None:
         """Send an external mocap pose to the Crazyflie estimator."""
-        self._run_command("External pose update", self._send_external_pose())
+        self._run(self._send_external_pose)
 
     def send_action_attitude(
         self,
@@ -118,7 +115,7 @@ class Crazyflie:
         pwm = force2pwm(thrust, drone_parameters["thrust_max"] * 4, drone_parameters["pwm_max"])
         pwm = np.clip(pwm, drone_parameters["pwm_min"], drone_parameters["pwm_max"])
         command = (*np.rad2deg(attitude), int(pwm))
-        self._run_command("Attitude setpoint", self._send_attitude_setpoint(*command))
+        self._run(self._send_attitude_setpoint, *command)
         if publish_to_ros:
             self._ros_connector.publish_cmd(command)
 
@@ -141,9 +138,7 @@ class Crazyflie:
             body_rates = np.zeros(3)
         quat = R.from_euler("z", yaw).as_quat()
         # TODO have quat as argument and just forward it -> need to change action interface
-        self._run_command(
-            "Full-state setpoint", self._send_full_state_setpoint(pos, vel, acc, quat, body_rates)
-        )
+        self._run(self._send_full_state_setpoint, pos, vel, acc, quat, body_rates)
 
     def return_to_start(
         self,
@@ -157,7 +152,7 @@ class Crazyflie:
         land_duration: float = 3.0,
     ) -> None:
         """Return to a start position using the high-level commander."""
-        self._run_command("Preparing high-level commander", self._prepare_high_level())
+        self._run(self._prepare_high_level)
 
         def wait_for_action(duration: float) -> None:
             end_time = self._loop.time() + duration
@@ -167,23 +162,23 @@ class Crazyflie:
                 if not self.is_connected:
                     raise RuntimeError("Drone connection lost")
                 self.send_external_pose()
-                self._run(asyncio.sleep(0.05))
+                self._run(asyncio.sleep, 0.05)
 
         vel_norm = np.linalg.norm(initial_obs["vel"])
         break_pos = initial_obs["pos"].copy()
         if vel_norm > 1e-6:
             break_pos += initial_obs["vel"] / vel_norm * breaking_distance
         break_pos[2] = return_height
-        self._run_command("High-level goto", self._go_to(break_pos, 0.0, breaking_duration))
+        self._run(self._go_to, break_pos, 0.0, breaking_duration)
         wait_for_action(breaking_duration)
 
         return_pos = return_pos.copy()
         return_pos[2] = return_height
-        self._run_command("High-level goto", self._go_to(return_pos, 0.0, return_duration))
+        self._run(self._go_to, return_pos, 0.0, return_duration)
         wait_for_action(return_duration)
 
         return_pos[2] = 0.05
-        self._run_command("High-level goto", self._go_to(return_pos, 0.0, land_duration))
+        self._run(self._go_to, return_pos, 0.0, land_duration)
         wait_for_action(land_duration)
 
     def go_to(
@@ -194,11 +189,11 @@ class Crazyflie:
         linear: bool = False,
     ) -> None:
         """Send a high-level goto command."""
-        self._run_command("High-level goto", self._go_to(pos, yaw, duration, linear=linear))
+        self._run(self._go_to, pos, yaw, duration, linear=linear)
 
     def emergency_stop(self) -> None:
         """Send the Crazyflie emergency stop command."""
-        self._run_command("Emergency stop", self._emergency_stop())
+        self._run(self._emergency_stop)
 
     def close(self, emergency_stop: bool = True) -> None:
         """Emergency-stop, disconnect, and close the cflib2 event loop."""
@@ -206,49 +201,28 @@ class Crazyflie:
             return
         try:
             if emergency_stop and self.is_connected:
-                try:
-                    self._run(self._emergency_stop())
-                    self._run(asyncio.sleep(0.1))
-                except RuntimeError as exc:
-                    logger.warning(f"Emergency stop failed during shutdown: {exc}")
-                except _DISCONNECT_ERRORS as exc:
-                    self._mark_disconnected("Emergency stop", exc)
-                except CrazyflieError as exc:
-                    logger.warning(f"Emergency stop failed during shutdown: {exc}")
+                self._run(self._emergency_stop)
+                self._run(asyncio.sleep, 0.1)
 
             if self.cf is not None:
-                self._run(self._disconnect())
+                self._run(self._disconnect)
         finally:
             try:
                 self._ros_connector.close()
             finally:
                 self._loop.close()
 
-    def _run(self, coroutine: Awaitable[Any]) -> Any:
-        """Run a cflib2 coroutine on this drone's event loop."""
-        return self._loop.run_until_complete(coroutine)
-
-    def _run_command(self, action_name: str, coroutine: Awaitable[None]) -> None:
-        if not self.is_connected:
-            close = getattr(coroutine, "close", None)
-            if close is not None:
-                close()
-            return
-        try:
-            self._run(coroutine)
-        except _DISCONNECT_ERRORS as exc:
-            # Mark disconnected
-            self.active = False
-            self._commander_level = None
-            logger.error(f"{self.uri} disconnected or unreachable. {action_name} failed: {exc}")
+    def _run(self, operation: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
+        """Run an asynchronous operation on this drone's event loop."""
+        if self._loop.is_closed():
+            raise RuntimeError("Crazyflie wrapper is already closed.")
+        return self._loop.run_until_complete(operation(*args, **kwargs))
 
     def _cf(self) -> CflibCrazyflie:
         if not self.is_connected:
             raise RuntimeError(f"Drone {self.uri} is not active.")
         assert self.cf is not None
         return self.cf
-
-        
 
     async def _connect(self, timeout: float) -> None:
         if self.is_connected:
