@@ -65,7 +65,6 @@ class Crazyflie:
         self.active = False
         self._commander_level: Literal["low", "high"] | None = None
         self._loop = asyncio.new_event_loop()
-        self._closed = False
 
     @classmethod
     def from_radio(
@@ -92,6 +91,8 @@ class Crazyflie:
 
     def connect(self, timeout: float = 10.0) -> None:
         """Connect to the Crazyflie."""
+        if self._loop.is_closed():
+            raise RuntimeError("Crazyflie wrapper is already closed.")
         self._run(self._connect(timeout))
 
     def reset(self, arm: bool = False) -> None:
@@ -201,7 +202,7 @@ class Crazyflie:
 
     def close(self, emergency_stop: bool = True) -> None:
         """Emergency-stop, disconnect, and close the cflib2 event loop."""
-        if self._closed:
+        if self._loop.is_closed():
             return
         try:
             if emergency_stop and self.is_connected:
@@ -218,9 +219,10 @@ class Crazyflie:
             if self.cf is not None:
                 self._run(self._disconnect())
         finally:
-            self._loop.close()
-            self._ros_connector.close()
-            self._closed = True
+            try:
+                self._ros_connector.close()
+            finally:
+                self._loop.close()
 
     def _run(self, coroutine: Awaitable[Any]) -> Any:
         """Run a cflib2 coroutine on this drone's event loop."""
@@ -235,7 +237,10 @@ class Crazyflie:
         try:
             self._run(coroutine)
         except _DISCONNECT_ERRORS as exc:
-            self._mark_disconnected(action_name, exc)
+            # Mark disconnected
+            self.active = False
+            self._commander_level = None
+            logger.error(f"{self.uri} disconnected or unreachable. {action_name} failed: {exc}")
 
     def _cf(self) -> CflibCrazyflie:
         if not self.is_connected:
@@ -243,14 +248,9 @@ class Crazyflie:
         assert self.cf is not None
         return self.cf
 
-    def _mark_disconnected(self, action_name: str, exc: BaseException) -> None:
-        self.active = False
-        self._commander_level = None
-        logger.error(f"{self.uri} disconnected or unreachable. {action_name} failed: {exc}")
+        
 
     async def _connect(self, timeout: float) -> None:
-        if self._closed:
-            raise RuntimeError("Crazyflie wrapper is already closed.")
         if self.is_connected:
             return
 
