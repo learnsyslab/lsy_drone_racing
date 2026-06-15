@@ -21,7 +21,7 @@ from gymnasium import Env
 
 from lsy_drone_racing.envs.utils import gate_passed, load_track
 from lsy_drone_racing.utils.checks import check_drone_start_pos, check_race_track
-from lsy_drone_racing.utils.crazyflie import RacingCrazyflie
+from lsy_drone_racing.utils.crazyflie import Crazyflie
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
@@ -37,7 +37,6 @@ class EnvData:
     obstacles_visited: NDArray
     last_drone_pos: NDArray[np.float32]
     taken_off: bool = False
-    drone_connected: bool = False
 
     @classmethod
     def create(cls, n_drones: int, n_gates: int, n_obstacles: int) -> EnvData:
@@ -56,7 +55,6 @@ class EnvData:
         self.obstacles_visited[...] = False
         self.last_drone_pos[...] = last_drone_pos
         self.taken_off = False
-        self.drone_connected = False
 
 
 # region CoreEnv
@@ -110,7 +108,7 @@ class RealRaceCoreEnv:
         self.randomizations = randomizations
         drone_config = drones[rank]
         self.drone_parameters = load_params("first_principles", drone_config["drone_model"])
-        self.drone = RacingCrazyflie.from_radio(
+        self.drone = Crazyflie.from_radio(
             radio_id=self.rank,
             radio_channel=drone_config["channel"],
             drone_id=drone_config["id"],
@@ -149,20 +147,22 @@ class RealRaceCoreEnv:
             )
         self.data.reset(np.stack([self._ros_connector.pos[n] for n in self.drone_names]))
 
-        self.drone.connect_and_reset(timeout=10.0, unlock_thrust=self.control_mode == "attitude")
-        self.data.drone_connected = True
+        self.drone.connect(timeout=10.0)
+        self.drone.reset(arm=True)
         self._last_drone_pos_update = 0  # Last time a position was sent to the drone estimator
 
         return self.obs(), self.info()
 
     def _step(self, action: NDArray) -> tuple[dict, float, bool, bool, dict]:
         """Perform a step in the environment."""
-        self.drone.send_action(
-            action,
-            control_mode=self.control_mode,
-            drone_parameters=self.drone_parameters,
-            publish_to_ros=True,
-        )
+        if self.control_mode == "attitude":
+            self.drone.send_action_attitude(
+                action[:3], action[3], self.drone_parameters, publish_to_ros=True
+            )
+        else:
+            self.drone.send_action_state(
+                action[:3], action[3:6], action[6:9], action[9], action[10:]
+            )
 
         drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
         assert drone_pos.dtype == np.float32, "Drone position must be of type float32"
@@ -238,7 +238,7 @@ class RealRaceCoreEnv:
     def terminated(self) -> NDArray:
         """Check if the episode is terminated."""
         terminated = self.data.target_gate == -1
-        terminated[self.rank] |= not self.drone.is_healthy
+        terminated[self.rank] |= not self.drone.is_connected
         terminated |= np.any(
             (self.pos_limit_low > self.data.last_drone_pos)
             | (self.data.last_drone_pos > self.pos_limit_high)

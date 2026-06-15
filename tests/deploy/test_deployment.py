@@ -48,15 +48,8 @@ def sleep_step(t_start: float, step: int, freq: float) -> None:
         time.sleep(wait)
 
 
-def state_circle(
-    drone: Any,
-    drone_params: dict[str, float],
-    center: np.ndarray,
-    height: float,
-    radius: float,
-    freq: float,
-) -> None:
-    """Take off and fly one small circle with position/yaw state commands."""
+def state_circle(drone: Any, center: np.ndarray, height: float, radius: float, freq: float) -> None:
+    """Take off and fly one small circle with full-state commands."""
     takeoff_duration = 2.0
     circle_duration = 4.0
     steps = int(takeoff_duration * freq)
@@ -70,19 +63,24 @@ def state_circle(
         alpha = (step + 1) / steps
         action = np.zeros(13, dtype=np.float32)
         action[:3] = (1 - alpha) * start + alpha * target
-        drone.send_action(action, control_mode="state", drone_parameters=drone_params)
+        action[3:6] = (target - start) / takeoff_duration
+        drone.send_action_state(action[:3], action[3:6], action[6:9], action[9], action[10:])
         drone.send_external_pose()
         sleep_step(t_start, step, freq)
 
     steps = int(circle_duration * freq)
+    omega = 2 * np.pi / circle_duration
     logger.info("Flying state-command circle with %.2f m radius.", radius)
     t_start = time.perf_counter()
     for step in range(steps):
-        theta = 2 * np.pi * step / steps
+        theta = omega * step / freq
         action = np.zeros(13, dtype=np.float32)
         action[:3] = target + np.array([radius * np.cos(theta), radius * np.sin(theta), 0.0])
+        action[3:6] = [-radius * omega * np.sin(theta), radius * omega * np.cos(theta), 0.0]
+        action[6:9] = [-radius * omega**2 * np.cos(theta), -radius * omega**2 * np.sin(theta), 0.0]
         action[9] = theta + np.pi / 2
-        drone.send_action(action, control_mode="state", drone_parameters=drone_params)
+        action[12] = omega
+        drone.send_action_state(action[:3], action[3:6], action[6:9], action[9], action[10:])
         drone.send_external_pose()
         sleep_step(t_start, step, freq)
     logger.info("Finished state-command circle.")
@@ -148,7 +146,7 @@ def attitude_circle(
     for step in range(steps):
         obs = current_obs(obs_connector, drone_name)
         action = controller.compute_control(obs).astype(np.float32)
-        drone.send_action(action, control_mode="attitude", drone_parameters=drone_params)
+        drone.send_action_attitude(action[:3], action[3], drone_params)
         drone.send_external_pose()
         controller.step_callback(action, obs, 0.0, False, False, {})
         sleep_step(t_start, step, freq)
@@ -159,7 +157,7 @@ def attitude_circle(
     for step in range(steps):
         obs = current_obs(obs_connector, drone_name)
         action = controller.compute_control(obs).astype(np.float32)
-        drone.send_action(action, control_mode="attitude", drone_parameters=drone_params)
+        drone.send_action_attitude(action[:3], action[3], drone_params)
         drone.send_external_pose()
         controller.step_callback(action, obs, 0.0, False, False, {})
         sleep_step(t_start, step, freq)
@@ -185,7 +183,7 @@ def main() -> None:
 
     from lsy_drone_racing.control.attitude_controller import AttitudeController
     from lsy_drone_racing.utils import load_config
-    from lsy_drone_racing.utils.crazyflie import RacingCrazyflie
+    from lsy_drone_racing.utils.crazyflie import Crazyflie
 
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
@@ -206,7 +204,7 @@ def main() -> None:
         radio_id,
         drone_config["channel"],
     )
-    drone = RacingCrazyflie.from_radio(
+    drone = Crazyflie.from_radio(
         radio_id=radio_id,
         radio_channel=drone_config["channel"],
         drone_id=drone_config["id"],
@@ -214,21 +212,17 @@ def main() -> None:
     )
     try:
         logger.info("Connecting and resetting for state-command test.")
-        drone.connect_and_reset()
+        drone.connect()
+        drone.reset(arm=True)
         state_circle(
-            drone,
-            drone_params,
-            obs_connector.pos[drone_name].copy(),
-            args.height,
-            args.radius,
-            args.freq,
+            drone, obs_connector.pos[drone_name].copy(), args.height, args.radius, args.freq
         )
         logger.info("Returning to start after state-command test.")
         drone.return_to_start(home_pos, current_obs(obs_connector, drone_name), check_ok=rclpy.ok)
         logger.info("Finished state-command test.")
 
         logger.info("Connecting and resetting for attitude-command test.")
-        drone.connect_and_reset(unlock_thrust=True)
+        drone.reset(arm=True)
         attitude_controller = AttitudeController(current_obs(obs_connector, drone_name), {}, config)
         attitude_circle(
             drone,
@@ -245,7 +239,7 @@ def main() -> None:
         logger.info("Finished attitude-command test.")
 
         logger.info("Connecting and resetting for high-level goto test.")
-        drone.connect_and_reset()
+        drone.reset(arm=True)
         target = obs_connector.pos[drone_name].copy()
         target[2] = args.height
         logger.info("Sending high-level goto to %s.", np.array2string(target, precision=3))

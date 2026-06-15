@@ -23,13 +23,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RacingCrazyflie"]
+__all__ = ["Crazyflie"]
 
 _DISCONNECT_ERRORS = (DisconnectedError, LinkError, TimeoutError)
 _POWER_CYCLE_BOOT_WAIT = 3.0
 
 
-class RacingCrazyflie:
+class Crazyflie:
     """Synchronous single-drone wrapper around the asynchronous cflib2 API.
 
     The environment owns ROS and observation assembly. This class owns only the Crazyflie radio
@@ -76,7 +76,7 @@ class RacingCrazyflie:
         drone_name: str | None = None,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
-    ) -> RacingCrazyflie:
+    ) -> Crazyflie:
         """Create a Crazyflie wrapper from deployment radio settings."""
         return cls(
             f"radio://{radio_id}/{radio_channel}/2M/E7E7E7E7{drone_id:02X}",
@@ -90,57 +90,59 @@ class RacingCrazyflie:
         """Return whether the Crazyflie is currently connected."""
         return self.active and self.cf is not None
 
-    @property
-    def is_healthy(self) -> bool:
-        """Return whether commands can still be sent to the Crazyflie."""
-        return self.is_connected
-
-    def connect_and_reset(self, timeout: float = 10.0, unlock_thrust: bool = False) -> None:
-        """Connect, apply race settings, arm, reset the estimator, and optionally unlock thrust."""
+    def connect(self, timeout: float = 10.0) -> None:
+        """Connect to the Crazyflie."""
         self._run(self._connect(timeout))
+
+    def reset(self, arm: bool = False) -> None:
+        """Apply race settings, reset the estimator, and optionally arm the drone."""
         self._run(self._apply_settings())
         self._run(self._reset_estimator())
-        self._run(self._arm())
-        if unlock_thrust:
+        if arm:
+            self._run(self._arm())
             self._run_command("Unlocking thrust", self._unlock_thrust())
 
     def send_external_pose(self) -> None:
         """Send an external mocap pose to the Crazyflie estimator."""
         self._run_command("External pose update", self._send_external_pose())
 
-    def send_action(
+    def send_action_attitude(
         self,
-        action: NDArray[np.floating],
-        control_mode: Literal["state", "attitude"],
+        attitude: NDArray[np.floating],
+        thrust: float,
         drone_parameters: dict[str, float],
         publish_to_ros: bool = True,
     ) -> None:
-        """Send a racing env action to the Crazyflie.
+        """Send a roll, pitch, yaw-rate, and collective-thrust command."""
+        pwm = force2pwm(thrust, drone_parameters["thrust_max"] * 4, drone_parameters["pwm_max"])
+        pwm = np.clip(pwm, drone_parameters["pwm_min"], drone_parameters["pwm_max"])
+        command = (*np.rad2deg(attitude), int(pwm))
+        self._run_command("Attitude setpoint", self._send_attitude_setpoint(*command))
+        if publish_to_ros:
+            self._ros_connector.publish_cmd(command)
 
-        In attitude mode, this also optionally publishes the converted RPYT command to ROS for the
-        estimator. In state mode, cflib2 currently exposes position+yaw setpoints instead of the
-        legacy full-state setpoint, so only the action's position and yaw are forwarded.
-        """
-        if control_mode == "attitude":
-            pwm = force2pwm(
-                action[3], drone_parameters["thrust_max"] * 4, drone_parameters["pwm_max"]
-            )
-            pwm = np.clip(pwm, drone_parameters["pwm_min"], drone_parameters["pwm_max"])
-            command = (*np.rad2deg(action[:3]), int(pwm))
-            self._run_command("Attitude setpoint", self._send_attitude_setpoint(*command))
-            if publish_to_ros:
-                self._ros_connector.publish_cmd(command)
-            return
-
-        if control_mode == "state":
-            self._run_command(
-                "Position setpoint", self._send_position_setpoint(action[:3], action[9])
-            )
-            # We don't publish the state command to ros, since the estimator only handles 4D arrays
-            # TODO Maybe we should publish pos+yaw commands, could be interesting for debugging
-            return
-
-        raise ValueError(f"Invalid control mode: {control_mode}")
+    def send_action_state(
+        self,
+        pos: NDArray[np.floating],
+        vel: NDArray[np.floating] | None = None,
+        acc: NDArray[np.floating] | None = None,
+        yaw: float | None = None,
+        body_rates: NDArray[np.floating] | None = None,
+    ) -> None:
+        """Send a full-state command with yaw-only orientation."""
+        if vel is None:
+            vel = np.zeros(3)
+        if acc is None:
+            acc = np.zeros(3)
+        if yaw is None:
+            yaw = 0.0
+        if body_rates is None:
+            body_rates = np.zeros(3)
+        quat = R.from_euler("z", yaw).as_quat()
+        # TODO have quat as argument and just forward it -> need to change action interface
+        self._run_command(
+            "Full-state setpoint", self._send_full_state_setpoint(pos, vel, acc, quat, body_rates)
+        )
 
     def return_to_start(
         self,
@@ -161,7 +163,7 @@ class RacingCrazyflie:
             while self._loop.time() < end_time:
                 if check_ok is not None and not check_ok():
                     raise RuntimeError("Return-to-start was interrupted")
-                if not self.is_healthy:
+                if not self.is_connected:
                     raise RuntimeError("Drone connection lost")
                 self.send_external_pose()
                 self._run(asyncio.sleep(0.05))
@@ -339,9 +341,22 @@ class RacingCrazyflie:
         await self._change_commander_level("low")
         await self._cf().commander().send_setpoint_rpyt(roll, pitch, yaw_rate, thrust)
 
-    async def _send_position_setpoint(self, pos: NDArray[np.floating], yaw: float) -> None:
+    async def _send_full_state_setpoint(
+        self,
+        pos: NDArray[np.floating],
+        vel: NDArray[np.floating],
+        acc: NDArray[np.floating],
+        quat: NDArray[np.floating],
+        body_rates: NDArray[np.floating],
+    ) -> None:
         await self._change_commander_level("low")
-        await self._cf().commander().send_setpoint_position(pos[0], pos[1], pos[2], np.rad2deg(yaw))
+        await (
+            self._cf()
+            .commander()
+            .send_setpoint_full_state(
+                pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
+            )
+        )
 
     async def _stop_setpoint(self) -> None:
         await self._cf().commander().send_stop_setpoint()
