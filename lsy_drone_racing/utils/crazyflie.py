@@ -60,8 +60,7 @@ class Crazyflie:
             tf_names=[self.drone_name], cmd_topic=f"/drones/{self.drone_name}/command", timeout=10.0
         )
 
-        self.cf: CflibCrazyflie | None = None
-        self.active = False
+        self._cf: CflibCrazyflie | None = None
         self._commander_level: Literal["low", "high"] | None = None
         self._loop = asyncio.new_event_loop()
 
@@ -84,9 +83,14 @@ class Crazyflie:
         )
 
     @property
+    def cf(self) -> CflibCrazyflie | None:
+        """Return the underlying cflib2 Crazyflie instance."""
+        return self._cf
+
+    @property
     def is_connected(self) -> bool:
         """Return whether the Crazyflie is currently connected."""
-        return self.active and self.cf is not None
+        return self._cf is not None
 
     def connect(self, timeout: float = 10.0) -> None:
         """Connect to the Crazyflie."""
@@ -204,7 +208,7 @@ class Crazyflie:
                 self._run(self._emergency_stop)
                 self._run(asyncio.sleep, 0.1)
 
-            if self.cf is not None:
+            if self._cf is not None:
                 self._run(self._disconnect)
         finally:
             try:
@@ -217,12 +221,6 @@ class Crazyflie:
         if self._loop.is_closed():
             raise RuntimeError("Crazyflie wrapper is already closed.")
         return self._loop.run_until_complete(operation(*args, **kwargs))
-
-    def _cf(self) -> CflibCrazyflie:
-        if not self.is_connected:
-            raise RuntimeError(f"Drone {self.uri} is not active.")
-        assert self.cf is not None
-        return self.cf
 
     async def _connect(self, timeout: float) -> None:
         if self.is_connected:
@@ -250,32 +248,28 @@ class Crazyflie:
         )
         result = results[0]
         if isinstance(result, BaseException):
-            self.cf = None
-            self.active = False
+            self._cf = None
             self._commander_level = None
             raise RuntimeError(f"Connecting to Crazyflie failed: {self.uri}: {result}") from result
 
-        self.cf = result
-        self.active = True
+        self._cf = result
         logger.info(f"Crazyflie connected to {self.uri}")
 
     async def _disconnect(self) -> None:
-        if self.cf is None:
-            self.active = False
+        if self._cf is None:
             return
         try:
-            await self.cf.disconnect()
+            await self._cf.disconnect()
         except CrazyflieError as exc:
             logger.error(f"Disconnecting {self.uri} failed: {exc}")
         finally:
-            self.cf = None
-            self.active = False
+            self._cf = None
             self._commander_level = None
 
     async def _reset_estimator(self) -> None:
         pos = self._ros_connector.pos[self.drone_name]
         quat = self._ros_connector.quat[self.drone_name]
-        param = self._cf().param()
+        param = self.cf.param()
         await param.set("kalman.initialX", pos[0])
         await param.set("kalman.initialY", pos[1])
         await param.set("kalman.initialZ", pos[2])
@@ -286,7 +280,7 @@ class Crazyflie:
         await param.set("kalman.resetEstimation", 0)
 
     async def _apply_settings(self) -> None:
-        param = self._cf().param()
+        param = self.cf.param()
         # Estimators: 1: complementary, 2: Kalman. We recommend Kalman from real-world tests.
         await param.set("stabilizer.estimator", 2)
         await asyncio.sleep(0.1)
@@ -302,18 +296,18 @@ class Crazyflie:
 
     async def _unlock_thrust(self) -> None:
         await self._change_commander_level("low")
-        await self._cf().commander().send_setpoint_rpyt(0.0, 0.0, 0.0, 0)
+        await self.cf.commander().send_setpoint_rpyt(0.0, 0.0, 0.0, 0)
 
     async def _send_external_pose(self) -> None:
         pos = self._ros_connector.pos[self.drone_name]
         quat = self._ros_connector.quat[self.drone_name]
-        await self._cf().localization().external_pose().send_external_pose(pos=pos, quat=quat)
+        await self.cf.localization().external_pose().send_external_pose(pos=pos, quat=quat)
 
     async def _send_attitude_setpoint(
         self, roll: float, pitch: float, yaw_rate: float, thrust: int
     ) -> None:
         await self._change_commander_level("low")
-        await self._cf().commander().send_setpoint_rpyt(roll, pitch, yaw_rate, thrust)
+        await self.cf.commander().send_setpoint_rpyt(roll, pitch, yaw_rate, thrust)
 
     async def _send_full_state_setpoint(
         self,
@@ -324,16 +318,12 @@ class Crazyflie:
         body_rates: NDArray[np.floating],
     ) -> None:
         await self._change_commander_level("low")
-        await (
-            self._cf()
-            .commander()
-            .send_setpoint_full_state(
-                pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
-            )
+        await self.cf.commander().send_setpoint_full_state(
+            pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
         )
 
     async def _stop_setpoint(self) -> None:
-        await self._cf().commander().send_stop_setpoint()
+        await self.cf.commander().send_stop_setpoint()
 
     async def _prepare_high_level(self) -> None:
         await self._stop_setpoint()
@@ -343,24 +333,22 @@ class Crazyflie:
         self, pos: NDArray[np.floating], yaw: float, duration: float, linear: bool = False
     ) -> None:
         await self._change_commander_level("high")
-        await (
-            self._cf()
-            .high_level_commander()
-            .go_to(pos[0], pos[1], pos[2], yaw, duration, False, linear, None)
+        await self.cf.high_level_commander().go_to(
+            pos[0], pos[1], pos[2], yaw, duration, False, linear, None
         )
 
     async def _arm(self) -> None:
-        await self._cf().platform().send_arming_request(do_arm=True)
+        await self.cf.platform().send_arming_request(do_arm=True)
         await asyncio.sleep(0.8)
 
     async def _emergency_stop(self) -> None:
-        await self._cf().localization().emergency().send_emergency_stop()
+        await self.cf.localization().emergency().send_emergency_stop()
 
     async def _change_commander_level(self, level: Literal["low", "high"]) -> None:
         if self._commander_level == level:
             return
 
-        cf = self._cf()
+        cf = self.cf
         if level == "high":
             await cf.commander().send_notify_setpoint_stop(0)
         await cf.param().set("commander.enHighLevel", int(level == "high"))
