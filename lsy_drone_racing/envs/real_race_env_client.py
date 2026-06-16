@@ -94,7 +94,7 @@ class RealMultiDroneRaceEnvClient(Env):
 
         self.device = jax.devices("cpu")[0]
         self._ros_connector: ROSConnector | None = None
-        self.data = EnvData(self.n_drones, self.n_gates, self.n_obstacles)
+        self.data = EnvData.create(self.n_drones, self.n_gates, self.n_obstacles)
 
         self._comm: RaceCommNode | None = None
         self._client_state_pub: Any = None
