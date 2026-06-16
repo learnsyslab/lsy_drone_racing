@@ -38,7 +38,10 @@ sim = [
 # option[gpu]: simulation with gpu
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
-deploy = ["cfclient >= 2025.9, < 2026.0", "cflib == 0.1.30", "drone-estimators"]
+deploy = [
+    "cflib2 @ git+https://github.com/ratheron/crazyflie-lib-python-v2.git@bccd34092c22392b941bbef9bc5a3718b9d27da0",
+    "drone-estimators",
+]
 # option[rl]: train rl policy
 rl = ["torch == 2.8.0", "wandb"]
 # option[gamepad]: use a gamepad as input for your drone
@@ -129,6 +132,12 @@ cmd = [
     "{{drone_name}}",
 ]
 args = [{ "arg" = "drone_name", "default" = "cf10" }]
+
+## feature [deploy]
+[tool.pixi.feature.deploy.dependencies]
+packaging = ">=24,<26"  # Necessary for cflib2
+maturin = ">=1.13.3,<2"
+rust = ">=1.95.0,<1.96"
 
 ## feature [tests]
 [tool.pixi.feature.tests.tasks]

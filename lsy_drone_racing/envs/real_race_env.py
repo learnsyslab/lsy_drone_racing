@@ -8,35 +8,24 @@ real drones.
 
 from __future__ import annotations
 
-import logging
-import multiprocessing as mp
-import struct
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-import cflib
 import jax
 import numpy as np
 import rclpy
-from cflib.crazyflie import Crazyflie, Localization
-from cflib.crtp.crtpstack import CRTPPacket, CRTPPort
-from cflib.utils.power_switch import PowerSwitch
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from drone_models.core import load_params
-from drone_models.transform import force2pwm
 from gymnasium import Env
-from scipy.spatial.transform import Rotation as R
 
 from lsy_drone_racing.envs.utils import gate_passed, load_track
 from lsy_drone_racing.utils.checks import check_drone_start_pos, check_race_track
+from lsy_drone_racing.utils.crazyflie import Crazyflie
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
     from numpy.typing import NDArray
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -48,7 +37,6 @@ class EnvData:
     obstacles_visited: NDArray
     last_drone_pos: NDArray[np.float32]
     taken_off: bool = False
-    drone_connected: bool = False
 
     @classmethod
     def create(cls, n_drones: int, n_gates: int, n_obstacles: int) -> EnvData:
@@ -67,7 +55,6 @@ class EnvData:
         self.obstacles_visited[...] = False
         self.last_drone_pos[...] = last_drone_pos
         self.taken_off = False
-        self.drone_connected = False
 
 
 # region CoreEnv
@@ -113,23 +100,21 @@ class RealRaceCoreEnv:
         self.sensor_range = sensor_range
         self.drone_names = [f"cf{drone['id']}" for drone in drones]
         self.drone_name = self.drone_names[rank]
-        self.drone_channel = drones[rank]["channel"]
-        self.drone_id = drones[rank]["id"]
         self.rank = rank
         self.freq = freq
         self.device = jax.devices("cpu")[0]
         assert control_mode in ["state", "attitude"], f"Invalid control mode {control_mode}"
         self.control_mode = control_mode
         self.randomizations = randomizations
-        self.drone_parameters = load_params("first_principles", drones[rank]["drone_model"])
-        self.drone = Crazyflie(rw_cache=str(Path(__file__).parent / ".cache"))
-        self._drone_healthy = mp.Event()
-        self._drone_healthy.set()
-        self._ros_connector = ROSConnector(
-            estimator_names=self.drone_names,
-            cmd_topic=f"/drones/{self.drone_name}/command",
-            timeout=10.0,
+        drone_config = drones[rank]
+        self.drone_parameters = load_params("first_principles", drone_config["drone_model"])
+        self.drone = Crazyflie.from_radio(
+            radio_id=self.rank,
+            radio_channel=drone_config["channel"],
+            drone_id=drone_config["id"],
+            drone_name=self.drone_name,
         )
+        self._ros_connector = ROSConnector(estimator_names=self.drone_names, timeout=10.0)
         # Dynamic data
         self.data = EnvData.create(
             n_drones=self.n_drones, n_gates=self.n_gates, n_obstacles=self.n_obstacles
@@ -162,22 +147,22 @@ class RealRaceCoreEnv:
             )
         self.data.reset(np.stack([self._ros_connector.pos[n] for n in self.drone_names]))
 
-        self._connect_radio(
-            radio_id=self.rank, radio_channel=self.drone_channel, drone_id=self.drone_id
-        )
+        self.drone.connect(timeout=10.0)
+        self.drone.reset(arm=True)
         self._last_drone_pos_update = 0  # Last time a position was sent to the drone estimator
-        self._reset_drone()
-
-        if self.control_mode == "attitude":
-            # Unlock thrust mode protection by sending a zero thrust command
-            self.drone.commander.send_setpoint(0, 0, 0, 0)
 
         return self.obs(), self.info()
 
     def _step(self, action: NDArray) -> tuple[dict, float, bool, bool, dict]:
         """Perform a step in the environment."""
-        # Note: We do not send the action to the drone here.
-        self.send_action(action)
+        if self.control_mode == "attitude":
+            self.drone.send_action_attitude(
+                action[:3], action[3], self.drone_parameters, publish_to_ros=True
+            )
+        else:
+            self.drone.send_action_state(
+                action[:3], action[3:6], action[6:9], action[9], action[10:]
+            )
 
         drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
         assert drone_pos.dtype == np.float32, "Drone position must be of type float32"
@@ -203,7 +188,7 @@ class RealRaceCoreEnv:
         # Send vicon position updates to the drone at a fixed frequency irrespective of the env freq
         # Sending too many updates may deteriorate the performance of the drone, hence the limiter
         if (t := time.perf_counter()) - self._last_drone_pos_update > 1 / self.POS_UPDATE_FREQ:
-            self.drone.extpos.send_extpose(*drone_pos[self.rank], *drone_quat[self.rank])
+            self.drone.send_external_pose()
             self._last_drone_pos_update = t
         return self.obs(), self.reward(), self.terminated(), self.truncated(), self.info()
 
@@ -253,7 +238,7 @@ class RealRaceCoreEnv:
     def terminated(self) -> NDArray:
         """Check if the episode is terminated."""
         terminated = self.data.target_gate == -1
-        terminated[self.rank] |= not self._drone_healthy.is_set()
+        terminated[self.rank] |= not self.drone.is_connected
         terminated |= np.any(
             (self.pos_limit_low > self.data.last_drone_pos)
             | (self.data.last_drone_pos > self.pos_limit_high)
@@ -268,30 +253,6 @@ class RealRaceCoreEnv:
     def info(self) -> dict:
         """Return an info dictionary containing additional information about the environment."""
         return {}
-
-    def send_action(self, action: NDArray):
-        """Send the action to the drone."""
-        if self.control_mode == "attitude":
-            pwm = force2pwm(
-                action[3], self.drone_parameters["thrust_max"] * 4, self.drone_parameters["pwm_max"]
-            )
-            pwm = np.clip(pwm, self.drone_parameters["pwm_min"], self.drone_parameters["pwm_max"])
-            action = (*np.rad2deg(action[:3]), int(pwm))
-            self.drone.commander.send_setpoint(*action)
-            self._ros_connector.publish_cmd(action)
-        else:
-            pos, vel, acc = action[:3], action[3:6], action[6:9]
-            # TODO: We currently limit ourselves to yaw rotation only because the simulation is
-            # based on the old crazyswarm full_state command definition. Once the simulation does
-            # support the real full_state command, we can remove this limitation and use full
-            # quaternions as inputs
-            quat = R.from_euler("z", action[9]).as_quat()
-            rollrate, pitchrate, yawrate = action[10:]
-            self.drone.commander.send_full_state_setpoint(
-                pos, vel, acc, quat, rollrate, pitchrate, yawrate
-            )
-            # TODO: The estimators can't handle state commands, so we simply don't send anything
-            # Make sure to use the legacy estimator with the state interface
 
     def _update_track_poses(self):
         """Update the track poses from the motion capture system."""
@@ -316,118 +277,6 @@ class RealRaceCoreEnv:
                 "track objects in Vicon and started the motion capture tracking node?"
             ) from e
 
-    def _connect_radio(self, radio_id: int, radio_channel: int, drone_id: int):
-        """Connect to the drone via radio.
-
-        Raises:
-            TimeoutError: If the drone is not reachable within 10 seconds.
-        """
-        cflib.crtp.init_drivers()
-        uri = f"radio://{radio_id}/{radio_channel}/2M/E7E7E7E7" + f"{drone_id:02x}".upper()
-
-        power_switch = PowerSwitch(uri)
-        power_switch.stm_power_cycle()
-        time.sleep(2)
-
-        event = mp.Event()
-
-        def connect_callback(_: str):
-            self._drone_healthy.set()
-            event.set()
-
-        self.drone.fully_connected.add_callback(connect_callback)
-        self.drone.disconnected.add_callback(lambda _: self._drone_healthy.clear())
-        self.drone.connection_failed.add_callback(
-            lambda _, msg: logger.warning(f"Connection failed: {msg}")
-        )
-        self.drone.connection_lost.add_callback(
-            lambda _, msg: logger.warning(f"Connection lost: {msg}")
-        )
-        self.drone.open_link(uri)
-
-        logger.info(f"Waiting for drone {drone_id} to connect...")
-        connected = event.wait(10.0)
-        if not connected:
-            raise TimeoutError("Timed out while waiting for the drone.")
-        self.data.drone_connected = True
-        logger.info(f"Drone {drone_id} connected to {uri}")
-
-    def _reset_drone(self):
-        """Arm the drone, reset estimation."""
-        # Arm the drone
-        self.drone.platform.send_arming_request(True)
-        self._apply_drone_settings()
-        pos = self._ros_connector.pos[self.drone_name]
-        # Reset Kalman filter values
-        self.drone.param.set_value("kalman.initialX", pos[0])
-        self.drone.param.set_value("kalman.initialY", pos[1])
-        self.drone.param.set_value("kalman.initialZ", pos[2])
-        quat = self._ros_connector.quat[self.drone_name]
-        yaw = R.from_quat(quat).as_euler("xyz", degrees=False)[2]
-        self.drone.param.set_value("kalman.initialYaw", yaw)
-        self.drone.param.set_value("kalman.resetEstimation", "1")
-        time.sleep(0.1)
-        self.drone.param.set_value("kalman.resetEstimation", "0")
-
-    def _apply_drone_settings(self):
-        """Apply firmware settings to the drone.
-
-        Note:
-            These settings are also required to make the high-level drone commander work properly.
-        """
-        # Estimators: 1: complementary, 2: kalman. We recommend kalman based on real-world tests
-        self.drone.param.set_value("stabilizer.estimator", 2)
-        time.sleep(0.1)  # TODO: Maybe remove
-        # enable/disable tumble control. Required 0 for agressive maneuvers
-        self.drone.param.set_value("supervisor.tmblChckEn", 1)
-        # Choose controller: 1: PID; 2:Mellinger
-        self.drone.param.set_value("stabilizer.controller", 2)
-        # rate: 0, angle: 1
-        self.drone.param.set_value("flightmode.stabModeRoll", 1)
-        self.drone.param.set_value("flightmode.stabModePitch", 1)
-        self.drone.param.set_value("flightmode.stabModeYaw", 1)
-        time.sleep(0.1)  # Wait for settings to be applied
-
-    def _return_to_start(self):
-        """Returning controller to fly the drone back to the starting position."""
-        # Enable high-level functions of the drone and disable low-level control access
-        self.drone.commander.send_stop_setpoint()
-        self.drone.commander.send_notify_setpoint_stop()
-        self.drone.param.set_value("commander.enHighLevel", "1")
-        self.drone.platform.send_arming_request(True)
-        # Fly back to the start position
-        RETURN_HEIGHT = 1.75  # m
-        BREAKING_DISTANCE = 1.0  # m
-        BREAKING_DURATION = 3.0  # s
-        RETURN_DURATION = 7.0  # s
-        LAND_DURATION = 3.0  # s
-
-        def wait_for_action(dt: float):
-            tstart = time.perf_counter()
-            # Wait for the action to be completed and send the current position to the drone
-            while time.perf_counter() - tstart < dt:
-                if not rclpy.ok():
-                    raise RuntimeError("ROS has already stopped")
-                if not self._drone_healthy.is_set():
-                    raise RuntimeError("Drone connection lost")
-                obs = self.obs()
-                self.drone.extpos.send_extpose(*obs["pos"][self.rank], *obs["quat"][self.rank])
-                time.sleep(0.05)
-
-        pos = self._ros_connector.pos[self.drone_name]
-        vel = self._ros_connector.vel[self.drone_name]
-        break_pos = pos + vel / np.linalg.norm(vel) * BREAKING_DISTANCE
-        break_pos[2] = RETURN_HEIGHT
-        self.drone.high_level_commander.go_to(*break_pos, 0, BREAKING_DURATION)
-        wait_for_action(BREAKING_DURATION)
-        return_pos = self.drones.pos[self.rank]  # Starting position from the config file
-        return_pos[2] = RETURN_HEIGHT
-        self.drone.high_level_commander.go_to(*return_pos, 0, RETURN_DURATION)
-        wait_for_action(RETURN_DURATION)
-        return_pos[2] = 0.05
-        self.drone.high_level_commander.go_to(*return_pos, 0, LAND_DURATION)
-        wait_for_action(LAND_DURATION)
-
     def _jit(self):
         """JIT compile jax functions.
 
@@ -451,16 +300,15 @@ class RealRaceCoreEnv:
         """
         try:
             if self.data.taken_off:
-                self._return_to_start()
+                obs = self.obs()
+                self.drone.return_to_start(
+                    self.drones.pos[self.rank],
+                    {k: v[self.rank] for k, v in obs.items()},
+                    check_ok=rclpy.ok,
+                )
         finally:
             try:
-                # Kill the drone
-                pk = CRTPPacket()
-                pk.port = CRTPPort.LOCALIZATION
-                pk.channel = Localization.GENERIC_CH
-                pk.data = struct.pack("<B", Localization.EMERGENCY_STOP)
-                self.drone.send_packet(pk)
-                self.drone.close_link()
+                self.drone.close(emergency_stop=True)
             finally:
                 # Close all ROS connections
                 self._ros_connector.close()
@@ -471,7 +319,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
     """A Gymnasium environment for controlling a real Crazyflie drone in a physical race track.
 
     This environment provides a standardized interface for deploying drone racing algorithms on
-    physical hardware. It handles communication with the drone through the cflib library and tracks
+    physical hardware. It handles communication with the drone through the cflib2 library and tracks
     the drone's position using a motion capture system via ROS2.
 
     The environment maintains the same observation and action space as its simulation counterpart,
@@ -561,7 +409,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
     maintains awareness of all drones in the race. This allows for coordinated multi-drone
     deployments where each drone runs in a separate process with its own controller.
 
-    The environment handles communication with the specific drone through cflib and tracks all
+    The environment handles communication with the specific drone through cflib2 and tracks all
     drones' positions using a motion capture system via ROS2. It provides observations that include
     the state of all drones, allowing controllers to implement collision avoidance or cooperative
     strategies.
