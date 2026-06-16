@@ -14,8 +14,20 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from drone_models.core import load_params
+
+from lsy_drone_racing.control.attitude_controller import AttitudeController
+from lsy_drone_racing.utils import load_config
 
 logger = logging.getLogger(__name__)
+
+try:
+    import rclpy
+    from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+
+    from lsy_drone_racing.utils.crazyflie import Crazyflie
+except ImportError as e:
+    logger.error("Failed to import modules: %s", e)
 
 
 def parse_args() -> argparse.Namespace:
@@ -177,14 +189,6 @@ def stream_external_pose(drone: Any, duration: float, freq: float) -> None:
 
 def main() -> None:
     """Run the manual deployment smoke test."""
-    import rclpy
-    from drone_estimators.ros_nodes.ros2_connector import ROSConnector
-    from drone_models.core import load_params
-
-    from lsy_drone_racing.control.attitude_controller import AttitudeController
-    from lsy_drone_racing.utils import load_config
-    from lsy_drone_racing.utils.crazyflie import Crazyflie
-
     args = parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
     logger.info("Loading deployment config from %s.", args.config)
