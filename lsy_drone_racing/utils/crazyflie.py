@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -16,8 +18,16 @@ from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from drone_models.transform import force2pwm
 from scipy.spatial.transform import Rotation as R
 
+from lsy_drone_racing.utils.lighthouse import (
+    LIGHTHOUSE_DECK_PARAM,
+    ORI_RATE_VARS,
+    POS_VEL_VARS,
+    decode_state,
+)
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    from concurrent.futures import Future
 
     from numpy.typing import NDArray
 
@@ -26,6 +36,10 @@ logger = logging.getLogger(__name__)
 __all__ = ["Crazyflie"]
 
 _POWER_CYCLE_BOOT_WAIT = 3.0  # 3 seconds is sufficient for a reboot
+# Argument passed to cflib2's log block ``start`` (matches swarmGPT usage). The resulting onboard
+# log rate should be verified on hardware; see the Lighthouse implementation plan.
+_STATE_LOG_START_ARG = 10
+_STATE_LOG_FIRST_SAMPLE_TIMEOUT = 5.0  # seconds to wait for the first lighthouse sample
 
 
 class Crazyflie:
@@ -33,6 +47,10 @@ class Crazyflie:
 
     The environment owns ROS and observation assembly. This class owns only the Crazyflie radio
     link, firmware parameters, command streaming, external-pose injection, and shutdown.
+
+    In lighthouse mode the drone localizes itself from the Lighthouse base stations. We then read
+    the onboard state estimate back from the drone (see :meth:`get_obs`) instead of using ROS, and
+    do not inject external poses.
     """
 
     def __init__(
@@ -41,6 +59,7 @@ class Crazyflie:
         drone_name: str,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
+        lighthouse: bool = False,
     ):
         """Create a Crazyflie wrapper.
 
@@ -49,21 +68,36 @@ class Crazyflie:
             drone_name: Name of the drone in ROS, e.g. cf10.
             cache_dir: Directory used for cflib2 TOC caching.
             power_cycle_on_connect: Whether to power-cycle the STM32 domain before connecting.
+            lighthouse: If True, use the onboard Lighthouse state estimate (read back from the
+                drone) instead of an external motion capture system. No ROS connection is created
+                and external poses are not pushed to the drone.
         """
         self.uri = uri
         self.drone_name = drone_name
         self.power_cycle_on_connect = power_cycle_on_connect
+        self.lighthouse = lighthouse
         self.context = LinkContext()
         cache_dir = Path(__file__).parent / ".cache" if cache_dir is None else Path(cache_dir)
         self.toc_cache = FileTocCache(str(cache_dir))
-        self._ros_connector = ROSConnector(
-            tf_names=[self.drone_name], cmd_topic=f"/drones/{self.drone_name}/command", timeout=10.0
+        self._ros_connector = (
+            None
+            if lighthouse
+            else ROSConnector(
+                tf_names=[self.drone_name],
+                cmd_topic=f"/drones/{self.drone_name}/command",
+                timeout=10.0,
+            )
         )
 
         self._cf: CflibCrazyflie | None = None
         self._commander_level: Literal["low", "high"] | None = None
         self._state_setpoint_fallback_warned = False
         self._loop = asyncio.new_event_loop()
+        # Lighthouse state-log reader (started in reset() when lighthouse is enabled).
+        self._loop_thread: threading.Thread | None = None
+        self._log_stop: threading.Event | None = None
+        self._log_future: Future[None] | None = None
+        self._latest_state: dict[str, NDArray[np.floating]] | None = None
 
     @classmethod
     def from_radio(
@@ -74,6 +108,7 @@ class Crazyflie:
         drone_name: str | None = None,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
+        lighthouse: bool = False,
     ) -> Crazyflie:
         """Create a Crazyflie wrapper from deployment radio settings."""
         return cls(
@@ -81,6 +116,7 @@ class Crazyflie:
             f"cf{drone_id}" if drone_name is None else drone_name,
             cache_dir=cache_dir,
             power_cycle_on_connect=power_cycle_on_connect,
+            lighthouse=lighthouse,
         )
 
     @property
@@ -101,13 +137,36 @@ class Crazyflie:
         """Apply race settings, reset the estimator, and optionally arm the drone."""
         self._run(self._apply_settings)
         self._run(self._reset_estimator)
+        if self.lighthouse:
+            self._start_state_log()
         if arm:
-            self._run(self._arm)
-            self._run(self._unlock_thrust)
+            self.arm()
+
+    def arm(self) -> None:
+        """Arm the drone and unlock thrust for low-level setpoints."""
+        self._run(self._arm)
+        self._run(self._unlock_thrust)
 
     def send_external_pose(self) -> None:
-        """Send an external mocap pose to the Crazyflie estimator."""
+        """Send an external mocap pose to the Crazyflie estimator (no-op in lighthouse mode)."""
+        if self.lighthouse:
+            return
         self._run(self._send_external_pose)
+
+    def get_obs(self) -> dict[str, NDArray[np.floating]]:
+        """Return the latest onboard state estimate (lighthouse mode only).
+
+        Returns:
+            A dictionary with ``float32`` ``pos``, ``quat`` (xyzw), ``vel`` and ``ang_vel``, read
+            from the drone's onboard estimator by the background state-log reader. The fields match
+            the per-drone simulation observation.
+        """
+        if not self.lighthouse:
+            raise RuntimeError("get_obs() is only available in lighthouse mode.")
+        state = self._latest_state
+        if state is None:
+            raise RuntimeError("No lighthouse state available yet. Call reset() first.")
+        return state
 
     def send_action_attitude(
         self,
@@ -121,7 +180,7 @@ class Crazyflie:
         pwm = np.clip(pwm, drone_parameters["pwm_min"], drone_parameters["pwm_max"])
         command = (*np.rad2deg(attitude), int(pwm))
         self._run(self._send_attitude_setpoint, *command)
-        if publish_to_ros:
+        if publish_to_ros and self._ros_connector is not None:
             self._ros_connector.publish_cmd(command)
 
     def send_action_state(
@@ -205,6 +264,7 @@ class Crazyflie:
         if self._loop.is_closed():
             return
         try:
+            self._stop_state_log()
             if emergency_stop and self.is_connected:
                 self._run(self._emergency_stop)
                 self._run(asyncio.sleep, 0.1)
@@ -213,15 +273,106 @@ class Crazyflie:
                 self._run(self._disconnect)
         finally:
             try:
-                self._ros_connector.close()
+                if self._ros_connector is not None:
+                    self._ros_connector.close()
             finally:
+                self._stop_loop_thread()
                 self._loop.close()
 
     def _run(self, operation: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
-        """Run an asynchronous operation on this drone's event loop."""
+        """Run an asynchronous operation on this drone's event loop.
+
+        In lighthouse mode the event loop is driven by a background thread (for the state-log
+        reader), so coroutines are scheduled onto it thread-safely. Otherwise the loop is driven
+        directly via ``run_until_complete``.
+        """
         if self._loop.is_closed():
             raise RuntimeError("Crazyflie wrapper is already closed.")
-        return self._loop.run_until_complete(operation(*args, **kwargs))
+        coro = operation(*args, **kwargs)
+        if self._loop_thread is not None:
+            return asyncio.run_coroutine_threadsafe(coro, self._loop).result()
+        return self._loop.run_until_complete(coro)
+
+    # region Lighthouse state log
+
+    def _start_state_log(self) -> None:
+        """Start the background reader that streams the onboard state estimate."""
+        if self._loop_thread is not None:
+            return
+        self._latest_state = None
+        self._log_stop = threading.Event()
+        self._loop_thread = threading.Thread(
+            target=self._loop.run_forever, name=f"cf-{self.drone_name}-loop", daemon=True
+        )
+        self._loop_thread.start()
+        self._log_future = asyncio.run_coroutine_threadsafe(
+            self._state_log_loop(self._log_stop), self._loop
+        )
+        deadline = time.time() + _STATE_LOG_FIRST_SAMPLE_TIMEOUT
+        while self._latest_state is None and time.time() < deadline:
+            if self._log_future.done():  # surface reader errors instead of waiting for the timeout
+                self._log_future.result()
+            time.sleep(0.01)
+        if self._latest_state is None:
+            raise RuntimeError(
+                f"No lighthouse state sample within {_STATE_LOG_FIRST_SAMPLE_TIMEOUT}s. Is the "
+                "Lighthouse system powered and the drone within the tracked volume?"
+            )
+
+    def _stop_state_log(self) -> None:
+        """Signal the background state-log reader to stop and wait for it to finish."""
+        if self._log_stop is not None:
+            self._log_stop.set()
+        if self._log_future is not None:
+            try:
+                self._log_future.result(timeout=2.0)
+            except Exception as exc:
+                logger.warning(f"Stopping the lighthouse state log failed: {exc}")
+        self._log_future = None
+        self._log_stop = None
+
+    def _stop_loop_thread(self) -> None:
+        """Stop the background event loop thread, if one is running."""
+        if self._loop_thread is None:
+            return
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        self._loop_thread.join()
+        self._loop_thread = None
+
+    async def _state_log_loop(self, stop: threading.Event) -> None:
+        """Continuously decode the onboard state estimate into ``self._latest_state``.
+
+        Two log blocks are used because a single CRTP log packet cannot hold all twelve values.
+        """
+        log = self.cf.log()
+        pos_vel_block = await log.create_block()
+        for variable in POS_VEL_VARS:
+            await pos_vel_block.add_variable(variable)
+        ori_rate_block = await log.create_block()
+        for variable in ORI_RATE_VARS:
+            await ori_rate_block.add_variable(variable)
+
+        pos_vel_stream = await pos_vel_block.start(_STATE_LOG_START_ARG)
+        ori_rate_stream = await ori_rate_block.start(_STATE_LOG_START_ARG)
+        try:
+            while not stop.is_set():
+                pos_vel = (await pos_vel_stream.next()).data
+                ori_rate = (await ori_rate_stream.next()).data
+                self._latest_state = decode_state(pos_vel, ori_rate)
+        finally:
+            await pos_vel_stream.stop()
+            await ori_rate_stream.stop()
+
+    async def _check_lighthouse_deck(self) -> None:
+        """Verify a Lighthouse deck is attached and detected."""
+        value = await self.cf.param().get(LIGHTHOUSE_DECK_PARAM)
+        if value != 1:
+            raise RuntimeError(
+                f"Lighthouse deck not detected ({LIGHTHOUSE_DECK_PARAM}={value!r}). Is the deck "
+                "attached and flashed, and are the base stations powered?"
+            )
+
+    # region Async cflib2 operations
 
     async def _connect(self, timeout: float) -> None:
         if self.is_connected:
@@ -255,6 +406,8 @@ class Crazyflie:
 
         self._cf = result
         logger.info(f"Crazyflie connected to {self.uri}")
+        if self.lighthouse:
+            await self._check_lighthouse_deck()
 
     async def _disconnect(self) -> None:
         if self._cf is None:
@@ -268,14 +421,17 @@ class Crazyflie:
             self._commander_level = None
 
     async def _reset_estimator(self) -> None:
-        pos = self._ros_connector.pos[self.drone_name]
-        quat = self._ros_connector.quat[self.drone_name]
         param = self.cf.param()
-        await param.set("kalman.initialX", pos[0])
-        await param.set("kalman.initialY", pos[1])
-        await param.set("kalman.initialZ", pos[2])
-        yaw = R.from_quat(quat).as_euler("xyz", degrees=False)[2]
-        await param.set("kalman.initialYaw", yaw)
+        # In lighthouse mode the drone derives its absolute pose from the base stations, so we do
+        # not seed the estimator with an external pose and let it converge on its own.
+        if not self.lighthouse:
+            pos = self._ros_connector.pos[self.drone_name]
+            quat = self._ros_connector.quat[self.drone_name]
+            await param.set("kalman.initialX", pos[0])
+            await param.set("kalman.initialY", pos[1])
+            await param.set("kalman.initialZ", pos[2])
+            yaw = R.from_quat(quat).as_euler("xyz", degrees=False)[2]
+            await param.set("kalman.initialYaw", yaw)
         await param.set("kalman.resetEstimation", 1)
         await asyncio.sleep(0.1)
         await param.set("kalman.resetEstimation", 0)

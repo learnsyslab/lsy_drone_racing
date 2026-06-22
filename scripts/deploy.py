@@ -46,6 +46,7 @@ def main(config: str = "level2.toml", controller: str | None = None):
         randomizations=config.env.randomizations,
         sensor_range=config.env.sensor_range,
         control_mode=config.env.control_mode,
+        lighthouse=config.deploy.get("lighthouse", False),
     )
     try:
         obs, info = env.reset(options=config.deploy)
