@@ -1,8 +1,11 @@
-"""ROS 2 node for publishing nominal gate and obstacle poses in RViz."""
+"""ROS 2 node for publishing nominal gate, obstacle, and drone-init poses in RViz.
+
+When launching this node, add a `MarkerArray` display in RViz and subscribe it to the
+`/nominal_frame_publisher` topic.
+"""
 
 import os
 from pathlib import Path
-from typing import Any
 
 os.environ["SCIPY_ARRAY_API"] = "1"
 
@@ -28,18 +31,10 @@ class NominalFramePublisherNode(Node):
         super().__init__("nominal_frame_publisher")
         self.publisher = self.create_publisher(MarkerArray, "nominal_frame_publisher", 10)
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.config_name = config_name
-        self.config = self._load_config(config_name)
+        self.config = load_config(Path(__file__).resolve().parents[1] / "config" / config_name)
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.timer_callback)
-
-    def _object_frame_name(self, prefix: str, index: int, entry: dict[str, Any]) -> str:
-        """Return a stable TF frame name for a track object."""
-        name = entry.get("name")
-        if name:
-            return str(name)
-        return f"{prefix}_{index}"
 
     def _make_transform(
         self, frame_id: str, child_frame_id: str, position: list[float], orientation: list[float]
@@ -57,14 +52,15 @@ class NominalFramePublisherNode(Node):
         transform.transform.rotation.w = float(orientation[3])
         return transform
 
-    def _load_config(self, config_name: str) -> Any:
-        config_path = Path(__file__).resolve().parents[1] / "config" / config_name
-        return load_config(config_path)
-
     def get_poses(
         self,
-    ) -> tuple[list[tuple[list[float], list[float]]], list[list[float]], list[list[float]]]:
-        """Return the nominal gate and obstacle poses from the configuration."""
+    ) -> tuple[
+        list[tuple[list[float], list[float]]],
+        list[list[float]],
+        list[list[float]],
+        list[tuple[list[float], list[float]]],
+    ]:
+        """Return the nominal gate, obstacle, and drone poses from the configuration."""
         gate_poses = [
             (gate["pos"], (R.from_euler("xyz", gate["rpy"])).as_quat().tolist())
             for gate in self.config.env.track.gates
@@ -78,7 +74,11 @@ class NominalFramePublisherNode(Node):
         ]
 
         obstacle_poses = [obstacle["pos"] for obstacle in self.config.env.track.obstacles]
-        return gate_poses, gate_marker_orientations, obstacle_poses
+        drone_poses = [
+            (drone["pos"], (R.from_euler("xyz", drone["rpy"])).as_quat().tolist())
+            for drone in self.config.env.track.drones
+        ]
+        return gate_poses, gate_marker_orientations, obstacle_poses, drone_poses
 
     def _make_marker(
         self,
@@ -118,13 +118,13 @@ class NominalFramePublisherNode(Node):
         """Publish the nominal track objects at a fixed rate."""
         msg = MarkerArray()
         transforms: list[TransformStamped] = []
-        gate_poses, marker_orientations, obstacle_poses = self.get_poses()
+        gate_poses, marker_orientations, obstacle_poses, drone_poses = self.get_poses()
 
         for marker_id, ((position, orientation), marker_orientation) in enumerate(
             zip(gate_poses, marker_orientations)
         ):
             gate = self.config.env.track.gates[marker_id]
-            frame_id = self._object_frame_name("g", marker_id + 1, gate)
+            frame_id = gate.get("name", f"g_{marker_id + 1}")
             transforms.append(
                 self._make_transform(
                     frame_id="world",
@@ -149,7 +149,7 @@ class NominalFramePublisherNode(Node):
         obstacle_offset = len(gate_poses)
         for index, position in enumerate(obstacle_poses):
             obstacle = self.config.env.track.obstacles[index]
-            frame_id = self._object_frame_name("o", index + 1, obstacle)
+            frame_id = obstacle.get("name", f"o_{index + 1}")
             marker_obstacle_position = [position[0], position[1], 1.52 / 2]
             transforms.append(
                 self._make_transform(
@@ -169,6 +169,32 @@ class NominalFramePublisherNode(Node):
                     orientation=[0.0, 0.0, 0.0, 1.0],
                     scale=(0.03, 0.03, 1.5),
                     color=(1.0, 0.6, 0.2, 0.8),
+                )
+            )
+
+        drone_offset = obstacle_offset + len(obstacle_poses)
+        for index, (position, orientation) in enumerate(drone_poses):
+            drone = self.config.env.track.drones[index]
+            frame_id = drone.get("name", f"drone_init_{index + 1}")
+            marker_position = [position[0], position[1], position[2] + 0.05]
+            transforms.append(
+                self._make_transform(
+                    frame_id="world",
+                    child_frame_id=frame_id,
+                    position=position,
+                    orientation=orientation,
+                )
+            )
+            msg.markers.append(
+                self._make_marker(
+                    marker_id=drone_offset + index,
+                    namespace="drone_init",
+                    marker_type=Marker.ARROW,
+                    frame_id="world",
+                    position=marker_position,
+                    orientation=orientation,
+                    scale=(0.25, 0.05, 0.05),
+                    color=(0.3, 1.0, 0.3, 0.9),
                 )
             )
 
