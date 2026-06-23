@@ -51,6 +51,8 @@ class CrazyflieWorker:
         drone_id: int,
         drone_channel: int,
         drone_model: str,
+        start_pos: NDArray[np.floating],
+        return_to_start_event: mp.synchronize.Event,
         stop_event: mp.synchronize.Event,
         init_barrier: mp.synchronize.Barrier,
         control_mode: Literal["attitude", "state"],
@@ -64,6 +66,8 @@ class CrazyflieWorker:
             drone_id: Crazyflie hardware ID (used to build the radio URI).
             drone_channel: Radio channel to connect on.
             drone_model: Drone model name for loading thrust/PWM parameters.
+            start_pos: Start position the drone should return to after the race.
+            return_to_start_event: Set while the worker is executing the return maneuver.
             stop_event: Set by the host to request a shutdown.
             init_barrier: Shared barrier; all workers and the host call :meth:`wait` once
                 initialized so that all drones start simultaneously. Any worker that fails
@@ -77,6 +81,8 @@ class CrazyflieWorker:
         self.drone_id = drone_id
         self.drone_channel = drone_channel
         self.drone_model = drone_model
+        self.start_pos = np.array(start_pos, dtype=np.float32)
+        self.return_to_start_event = return_to_start_event
         self.stop_event = stop_event
         self.init_barrier = init_barrier
         self.connection_failed = (
@@ -156,9 +162,8 @@ class CrazyflieWorker:
                     )
                     break
                 if self.last_msg and self.last_msg.controller_finished:
-                    self.logger.info(
-                        "Received stop signal from client, handover control to host..."
-                    )
+                    self.logger.info("Received stop signal from client, returning to start...")
+                    self._return_to_start()
                     break
                 action = list(self.last_msg.action) if self.last_msg else None
 
@@ -197,6 +202,23 @@ class CrazyflieWorker:
         rclpy.shutdown()
         self.logger.info("Drone process finished")
 
+    def _return_to_start(self):
+        """Return the drone to its configured start position if it has taken off."""
+        pos = self._ros_connector.pos[self.drone_name]
+        if pos[2] <= 0.1:
+            return
+        obs = {
+            "pos": pos,
+            "quat": self._ros_connector.quat[self.drone_name],
+            "vel": self._ros_connector.vel[self.drone_name],
+            "ang_vel": self._ros_connector.ang_vel[self.drone_name],
+        }
+        self.return_to_start_event.set()
+        try:
+            self.drone.return_to_start(self.start_pos, obs, check_ok=rclpy.ok)
+        finally:
+            self.return_to_start_event.clear()
+
     def run(self):
         """Run the worker: connect to the drone, initialize, and enter the control loop.
 
@@ -234,6 +256,8 @@ class CrazyflieWorker:
         drone_id: int,
         drone_channel: int,
         drone_model: str,
+        start_pos: NDArray[np.floating],
+        return_to_start_event: mp.synchronize.Event,
         stop_event: mp.synchronize.Event,
         control_mode: Literal["attitude", "state"],
         init_barrier: mp.synchronize.Barrier,
@@ -250,6 +274,8 @@ class CrazyflieWorker:
             drone_id=drone_id,
             drone_channel=drone_channel,
             drone_model=drone_model,
+            start_pos=start_pos,
+            return_to_start_event=return_to_start_event,
             stop_event=stop_event,
             control_mode=control_mode,
             control_freq=control_freq,
@@ -309,6 +335,7 @@ class CrazyflieRealRaceHost:
         self._num_drones = len(deploy_args.drones)
         self._mp_ctx = mp.get_context("spawn")
         self._processes = []
+        self._return_to_start_events = []
         self._stop_event = None
         self._init_barrier = None
         self._shutdown_event = threading.Event()
@@ -394,6 +421,7 @@ class CrazyflieRealRaceHost:
         """
         logger.debug(f"Spawning processes for {self._num_drones} Crazyflie drones...")
         self._processes = []
+        self._return_to_start_events = [self._mp_ctx.Event() for _ in range(self._num_drones)]
         self._stop_event = self._mp_ctx.Event()
         self._init_barrier = self._mp_ctx.Barrier(self._num_drones + 1)
 
@@ -406,6 +434,8 @@ class CrazyflieRealRaceHost:
                     self._drone_ids[rank],
                     self._drone_channels[rank],
                     self._drone_models[rank],
+                    self.drones_pose.pos[rank],
+                    self._return_to_start_events[rank],
                     self._stop_event,
                     self._drone_control_mode[rank],
                     self._init_barrier,
@@ -471,8 +501,15 @@ class CrazyflieRealRaceHost:
         )
         if self._init_barrier is not None:
             self._init_barrier.abort()
+        for process, return_event in zip(
+            self._processes, self._return_to_start_events, strict=False
+        ):
+            if process.is_alive() and return_event.is_set():
+                process.join(timeout=15)
+
         if self._stop_event is not None:
             self._stop_event.set()
+
         for process in self._processes:
             if process.is_alive():
                 process.join(timeout=5)
