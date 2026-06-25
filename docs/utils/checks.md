@@ -1,5 +1,3 @@
-utils.checks
-=============
+# utils.checks
 
-.. automodule:: lsy_drone_racing.utils.checks
-    :members:
+::: lsy_drone_racing.utils.checks

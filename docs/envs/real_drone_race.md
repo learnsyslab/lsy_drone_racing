@@ -1,5 +1,3 @@
-envs.real_drone_race
-====================
+# envs.real_drone_race
 
-.. automodule:: lsy_drone_racing.envs.real_race_env
-    :members:
+::: lsy_drone_racing.envs.real_race_env

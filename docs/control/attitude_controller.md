@@ -1,6 +1,5 @@
-control.attitude_controller
-===========================
+# control.attitude_controller
 
-.. automodule:: lsy_drone_racing.control.attitude_controller
-    :members:
-    :inherited-members:
+::: lsy_drone_racing.control.attitude_controller
+    options:
+      inherited_members: true

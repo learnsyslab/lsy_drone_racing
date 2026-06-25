@@ -1,5 +1,3 @@
-utils.utils
-===========
+# utils.utils
 
-.. automodule:: lsy_drone_racing.utils.utils
-    :members:
+::: lsy_drone_racing.utils.utils

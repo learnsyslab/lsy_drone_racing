@@ -1,6 +1,5 @@
-control.attitude_mpc
-===========================
+# control.attitude_mpc
 
-.. automodule:: lsy_drone_racing.control.attitude_mpc
-    :members:
-    :inherited-members:
+::: lsy_drone_racing.control.attitude_mpc
+    options:
+      inherited_members: true

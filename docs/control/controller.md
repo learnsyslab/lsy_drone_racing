@@ -1,6 +1,5 @@
-control.controller
-==================
+# control.controller
 
-.. automodule:: lsy_drone_racing.control.controller
-    :members:
-    :inherited-members:
+::: lsy_drone_racing.control.controller
+    options:
+      inherited_members: true

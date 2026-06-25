@@ -77,7 +77,7 @@ openblas = ">=0.3.30,<0.4"
 [tool.pixi.pypi-dependencies]
 lsy_drone_racing = { path = ".", editable = true }
 
-[tool.pixi.activation]
+[tool.pixi.feature.sim.activation]
 scripts = ["tools/setup_acados.sh"]
 
 [tool.pixi.tasks]
@@ -92,6 +92,7 @@ tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
 gpu-tests = { features = ["sim", "gpu", "tests"], solve-group = "default" }
 gamepad = { features = ["sim", "gamepad"], solve-group = "default" }
 profile = { features = ["sim", "profile", "gpu"], solve-group = "default" }
+docs = { features = ["docs"] }
 
 ## feature [kilted]
 [tool.pixi.feature.kilted]
@@ -127,6 +128,24 @@ pytest = "*"
 [tool.pixi.feature.profile.dependencies]
 pyinstrument = "*"
 
+## feature [docs]
+[tool.pixi.feature.docs.dependencies]
+python = ">=3.10"
+properdocs = ">=1.5.0"
+mkdocs-material = ">=9.0.0"
+
+[tool.pixi.feature.docs.pypi-dependencies]
+mkdocs-autorefs = ">=1.2.0"
+mkdocstrings = { extras = ["python"], version = ">=0.26.0" }
+mkdocs-gen-files = ">=0.5.0"
+mkdocs-literate-nav = ">=0.6.0"
+mkdocs-section-index = ">=0.3.0"
+mkdocs-charts-plugin = ">=0.0.10"
+
+[tool.pixi.feature.docs.tasks]
+docs-build = { cmd = "properdocs build", description = "Build docs" }
+docs-serve = { cmd = "properdocs serve --livereload", description = "Serve docs locally" }
+
 ########################
 # Linting and formatting settings
 ########################
@@ -148,7 +167,6 @@ exclude = [
     "dist",
     "site-packages",
     "venv",
-    "docs/conf.py",
 ]
 
 line-length = 100

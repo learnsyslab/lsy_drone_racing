@@ -1,11 +1,7 @@
-envs.drone_race
-===============
+# envs.drone_race
 
-.. automodule:: lsy_drone_racing.envs.drone_race
-    :members:
+::: lsy_drone_racing.envs.drone_race
 
-.. automodule:: lsy_drone_racing.envs.multi_drone_race
-    :members:
+::: lsy_drone_racing.envs.multi_drone_race
 
-.. automodule:: lsy_drone_racing.envs.race_core
-    :members:
+::: lsy_drone_racing.envs.race_core
