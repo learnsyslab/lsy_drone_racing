@@ -73,7 +73,7 @@ class EnvData:
     and environment boundaries. Static variables are initialized once and do not change during the
     episode.
 
-    Args:
+    Attributes:
         target_gate: Current target gate index for each drone in each environment
         gates_visited: Boolean flags indicating which gates have been visited by each drone
         obstacles_visited: Boolean flags indicating which obstacles have been detected

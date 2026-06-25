@@ -44,7 +44,6 @@ class MultiDroneRaceEnv(RaceCoreEnv, Env):
         """Initialize the multi-agent drone racing environment.
 
         Args:
-            n_drones: Number of drones.
             freq: Environment step frequency.
             sim_config: Simulation configuration.
             track: Track configuration.
