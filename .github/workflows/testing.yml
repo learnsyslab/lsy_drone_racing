@@ -1,6 +1,9 @@
 name: Testing  # Skips RL tests because stable-baselines3 comes with a lot of heavy-weight dependencies
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 jobs:
   test:
