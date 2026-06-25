@@ -1,14 +1,14 @@
-# LSY Drone Racing
+# LSY Autonomous Drone Racing Challenge
 
-Welcome to the LSY Drone Racing documentation! This project provides a simulator and code for deployment on real robot hardware for autonomous drone racing.
+Welcome to the LSY ADR documentation! This project provides a simulator and code for deployment on real robot hardware for autonomous drone racing.
 
 <div align="center">
-  <img src="img/race.gif" alt="LSY Drone Racing" width="600"/>
+  <img src="img/race.gif" alt="LSY ADR" width="600"/>
 </div>
 
 ## Project Overview
 
-LSY Drone Racing is designed to help you develop and test autonomous drone racing algorithms. Whether you're a beginner or an experienced drone enthusiast, this documentation will guide you through the process of setting up your environment, understanding the challenge, and utilizing the provided Python API to create high-performance racing drones.
+LSY ADR is designed to help you develop and test autonomous drone racing algorithms. Whether you're a beginner or an experienced drone enthusiast, this documentation will guide you through the process of setting up your environment, understanding the challenge, and utilizing the provided Python API to create high-performance racing drones.
 
 ### Key Features:
 
@@ -19,7 +19,7 @@ LSY Drone Racing is designed to help you develop and test autonomous drone racin
 
 ### Getting Started
 
-If you're new to the project, start with the [Getting Started](getting_started/general.md) section. This will help you set up your environment and understand the basics of the LSY Drone Racing framework.
+If you're new to the project, start with the [Getting Started](getting_started/general.md) section. This will help you set up your environment and understand the basics of the LSY ADR framework.
 
 ### The Challenge
 

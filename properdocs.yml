@@ -1,4 +1,4 @@
-site_name: LSY Drone Racing
+site_name: LSY Autonomous Drone Racing
 site_description: LSY Autonomous Drone Racing Project Course
 site_url: https://learnsyslab.github.io/lsy_drone_racing/
 repo_name: learnsyslab/lsy_drone_racing
@@ -8,8 +8,8 @@ docs_dir: docs
 
 theme:
   name: material
-  logo: img/logo_white.png
-  favicon: img/logo.png
+  logo: img/LSY_Logo_white_path.svg
+  favicon: img/LSY_Logo_Swoosh.svg
   features:
     - content.code.copy
     - content.code.select

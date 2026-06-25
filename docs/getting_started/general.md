@@ -1,6 +1,6 @@
-# The Drone Racing Project
+# The Autonomous Drone Racing Project
 
-Welcome to the LSY Drone Racing Project! This is a platform developed by the LSY Lab at the Technical University of Munich for testing and developing autonomous drone racing algorithms in simulation and deploy the same controller without any modification on real drones.
+Welcome to the LSY Autonomous Drone Racing Project! This is a platform developed by the LSY Lab at the Technical University of Munich for testing and developing autonomous drone racing algorithms in simulation and deploy the same controller without any modification on real drones.
 
 ## Implementing Your Own Algorithms
 
