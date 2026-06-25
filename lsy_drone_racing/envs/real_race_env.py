@@ -109,7 +109,7 @@ class RealRaceCoreEnv:
         self.randomizations = randomizations
         drone_config = drones[rank]
         self.drone_parameters = load_params(
-            available_dynamics[config.sim.dynamics], drone_config["drone"]
+            available_dynamics["first_principles"], drone_config["drone"]
         )
         self.drone = Crazyflie.from_radio(
             radio_id=self.rank,
