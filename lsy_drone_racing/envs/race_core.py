@@ -13,9 +13,9 @@ The environment is designed to be configurable, supporting:
 * Vectorized execution for parallel training
 
 This module is primarily used as a base for the higher-level environments in
-:mod:`~lsy_drone_racing.envs.drone_race` and :mod:`~lsy_drone_racing.envs.multi_drone_race`,
-which provide Gymnasium-compatible interfaces for reinforcement learning, MPC and other control
-techniques.
+[drone_race][lsy_drone_racing.envs.drone_race] and
+[multi_drone_race][lsy_drone_racing.envs.multi_drone_race], which provide Gymnasium-compatible
+interfaces for reinforcement learning, MPC and other control techniques.
 """
 
 from __future__ import annotations

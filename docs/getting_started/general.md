@@ -4,13 +4,13 @@ Welcome to the LSY Drone Racing Project! This is a platform developed by the LSY
 
 ## Implementing Your Own Algorithms
 
-To implement your own controller, you need to implement a `Controller` class in the [lsy_drone_racing.control](../control/index.md) module. The only restriction we place on controllers is that they have to implement the interface defined by the [Controller](../control/controller.md) class. Apart from that, you are encouraged to use the full spectrum of control algorithms, e.g., MPC, trajectory optimization, reinforcement learning, etc., to compete in the challenge. We recommend to put your controller implementation in the [lsy_drone_racing.control](../control/index.md) module to make sure that it is correctly recognized by our scripts.
+To implement your own controller, you need to implement a `Controller` class in the [lsy_drone_racing.control][lsy_drone_racing.control] module. The only restriction we place on controllers is that they have to implement the interface defined by the [Controller][lsy_drone_racing.control.controller.Controller] class. Apart from that, you are encouraged to use the full spectrum of control algorithms, e.g., MPC, trajectory optimization, reinforcement learning, etc., to compete in the challenge. We recommend to put your controller implementation in the [lsy_drone_racing.control][lsy_drone_racing.control] module to make sure that it is correctly recognized by our scripts.
 
 !!! note
     Make sure to inherit from the base class for your controller implementation. This ensures that your controller is compatible with our scripts. Also, you should only create one controller class per file. Otherwise, we do not know which controller to load from the file.
 
 !!! warning
-    You are not allowed to modify the interface of the [Controller](../control/controller.md) class. Doing so will make your controller incompatible with the deployment environment and we won't be able to run your controller on our setup.
+    You are not allowed to modify the interface of the [Controller][lsy_drone_racing.control.controller.Controller] class. Doing so will make your controller incompatible with the deployment environment and we won't be able to run your controller on our setup.
 
 ## Simulation
 
@@ -35,7 +35,7 @@ Students of the course should make sure to join the Moodle course with the link 
 
 The project is organized as follows:
 
-The `lsy_drone_racing` package contains all the code for the project. In [lsy_drone_racing.control](../control/index.md), we define the interface for the controllers and include example controllers to get you up to speed. The racing environments are implemented in [lsy_drone_racing.envs](../envs/index.md). Deploying the controllers on real drones requires integration with `ros2` and the communication library `cflib` for our drones. For more details check out the [Installation and Setup](setup.md) section.
+The `lsy_drone_racing` package contains all the code for the project. In [lsy_drone_racing.control][lsy_drone_racing.control], we define the interface for the controllers and include example controllers to get you up to speed. The racing environments are implemented in [lsy_drone_racing.envs][lsy_drone_racing.envs]. Deploying the controllers on real drones requires integration with `ros2` and the communication library `cflib` for our drones. For more details check out the [Installation and Setup](setup.md) section.
 
 The levels are defined in the config files contained in the `config` folder. You can have a look at the configuration options to understand how exactly they differ from each other.
 

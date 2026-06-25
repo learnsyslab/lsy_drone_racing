@@ -5,8 +5,9 @@ implementation. You have to use the same function signatures as defined by the b
 from that, you are free to add any additional methods, attributes, or classes to your controller.
 
 As an example, you could load the weights of a neural network in the constructor and use it to
-compute the control commands in the :meth:`compute_control <.Controller.compute_control>`
-method. You could also use the :meth:`step_callback <.Controller.step_callback>` method to
+compute the control commands in the
+[compute_control][lsy_drone_racing.control.controller.Controller.compute_control] method. You could
+also use the [step_callback][lsy_drone_racing.control.controller.Controller.step_callback] method to
 update the controller state at runtime.
 
 Note:
