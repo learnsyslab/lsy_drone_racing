@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# region Worker
+
 
 class CrazyflieWorker:
     """Manages a single Crazyflie drone in a dedicated subprocess.
@@ -53,6 +55,7 @@ class CrazyflieWorker:
         drone_model: str,
         start_pos: NDArray[np.floating],
         return_to_start_event: mp.synchronize.Event,
+        assigned_return_heights: mp.Array,
         stop_event: mp.synchronize.Event,
         init_barrier: mp.synchronize.Barrier,
         control_mode: Literal["attitude", "state"],
@@ -68,6 +71,7 @@ class CrazyflieWorker:
             drone_model: Drone model name for loading thrust/PWM parameters.
             start_pos: Start position the drone should return to after the race.
             return_to_start_event: Set while the worker is executing the return maneuver.
+            assigned_return_heights: Shared host-assigned return heights for all drones.
             stop_event: Set by the host to request a shutdown.
             init_barrier: Shared barrier; all workers and the host call :meth:`wait` once
                 initialized so that all drones start simultaneously. Any worker that fails
@@ -83,6 +87,7 @@ class CrazyflieWorker:
         self.drone_model = drone_model
         self.start_pos = np.array(start_pos, dtype=np.float32)
         self.return_to_start_event = return_to_start_event
+        self.assigned_return_heights = assigned_return_heights
         self.stop_event = stop_event
         self.init_barrier = init_barrier
         self.connection_failed = (
@@ -162,7 +167,7 @@ class CrazyflieWorker:
                     )
                     break
                 if self.last_msg and self.last_msg.controller_finished:
-                    self.logger.info("Received stop signal from client, returning to start...")
+                    self.logger.info("Received stop signal from client, waiting for return height...")
                     self._return_to_start()
                     break
                 action = list(self.last_msg.action) if self.last_msg else None
@@ -215,9 +220,25 @@ class CrazyflieWorker:
         }
         self.return_to_start_event.set()
         try:
-            self.drone.return_to_start(self.start_pos, obs, check_ok=rclpy.ok)
+            return_height = self._wait_for_return_height()
+            self.logger.info(f"Returning to start at height {return_height:.2f}m")
+            self.drone.return_to_start(
+                self.start_pos,
+                obs,
+                check_ok=rclpy.ok,
+                return_height=return_height,
+            )
         finally:
             self.return_to_start_event.clear()
+
+    def _wait_for_return_height(self) -> float:
+        """Wait until the host assigns a return height for this drone."""
+        while rclpy.ok() and not self.stop_event.is_set():
+            return_height = self.assigned_return_heights[self.rank]
+            if not np.isnan(return_height):
+                return float(return_height)
+            time.sleep(0.01)
+        raise RuntimeError("Return height assignment was interrupted")
 
     def run(self):
         """Run the worker: connect to the drone, initialize, and enter the control loop.
@@ -258,6 +279,7 @@ class CrazyflieWorker:
         drone_model: str,
         start_pos: NDArray[np.floating],
         return_to_start_event: mp.synchronize.Event,
+        assigned_return_heights: mp.Array,
         stop_event: mp.synchronize.Event,
         control_mode: Literal["attitude", "state"],
         init_barrier: mp.synchronize.Barrier,
@@ -276,12 +298,13 @@ class CrazyflieWorker:
             drone_model=drone_model,
             start_pos=start_pos,
             return_to_start_event=return_to_start_event,
+            assigned_return_heights=assigned_return_heights,
             stop_event=stop_event,
             control_mode=control_mode,
             control_freq=control_freq,
             init_barrier=init_barrier,
         ).run()
-
+# region Host
 
 class CrazyflieRealRaceHost:
     """Race host implementation for multi-drone racing with Crazyflie drones.
@@ -336,11 +359,17 @@ class CrazyflieRealRaceHost:
         self._mp_ctx = mp.get_context("spawn")
         self._processes = []
         self._return_to_start_events = []
+        self._assigned_return_heights = None
         self._stop_event = None
         self._init_barrier = None
         self._shutdown_event = threading.Event()
         self._clients_ready: dict[int, bool] = {rank: False for rank in range(self._num_drones)}
         self._clients_stopped: dict[int, bool] = {rank: False for rank in range(self._num_drones)}
+        self._finish_order: list[int] = []
+        self._return_height_min = float(deploy_args.return_height_min)
+        self._return_height_max = float(deploy_args.return_height_max)
+        if self._return_height_min > self._return_height_max:
+            raise ValueError("return_height_min must be less than or equal to return_height_max")
         self._start_time = time.time()
         self._comm = None
         self._host_ready_pub = None
@@ -364,8 +393,15 @@ class CrazyflieRealRaceHost:
                 if not self._clients_ready[rank]:
                     logger.debug(f"Client {rank} ready")
                     self._clients_ready[rank] = True
-                if msg.controller_finished:
-                    logger.info(f"Client {rank} stopped (gate={msg.next_gate_idx})")
+                if msg.controller_finished and not self._clients_stopped[rank]:
+                    finish_order = len(self._finish_order)
+                    return_height = self._return_height_for_finish_order(finish_order)
+                    logger.info(
+                        f"Client {rank} stopped (gate={msg.next_gate_idx}), assigning return "
+                        f"height {return_height:.2f}m"
+                    )
+                    self._assigned_return_heights[rank] = return_height
+                    self._finish_order.append(rank)
                     self._clients_stopped[rank] = True
 
             self._subs.append(
@@ -422,6 +458,9 @@ class CrazyflieRealRaceHost:
         logger.debug(f"Spawning processes for {self._num_drones} Crazyflie drones...")
         self._processes = []
         self._return_to_start_events = [self._mp_ctx.Event() for _ in range(self._num_drones)]
+        self._assigned_return_heights = self._mp_ctx.Array(
+            "d", [float("nan")] * self._num_drones, lock=False
+        )
         self._stop_event = self._mp_ctx.Event()
         self._init_barrier = self._mp_ctx.Barrier(self._num_drones + 1)
 
@@ -436,6 +475,7 @@ class CrazyflieRealRaceHost:
                     self._drone_models[rank],
                     self.drones_pose.pos[rank],
                     self._return_to_start_events[rank],
+                    self._assigned_return_heights,
                     self._stop_event,
                     self._drone_control_mode[rank],
                     self._init_barrier,
@@ -523,6 +563,15 @@ class CrazyflieRealRaceHost:
         if self._comm:
             self._comm.close()
         logger.info("Host shutdown complete")
+
+    def _return_height_for_finish_order(self, finish_order: int) -> float:
+        """Map finish order to a return height between configured max and min."""
+        if self._num_drones <= 1:
+            return self._return_height_max
+        alpha = finish_order / (self._num_drones - 1)
+        return self._return_height_max + alpha * (
+            self._return_height_min - self._return_height_max
+        )
 
     def _calibrate_client_clocks(self):
         """Expose the clock calibration service and wait for all clients to calibrate.

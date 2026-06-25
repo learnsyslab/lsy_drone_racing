@@ -24,7 +24,7 @@ import rclpy
 from lsy_drone_racing.utils import extract_config_for_rank, load_config, load_controller
 
 if TYPE_CHECKING:
-    from lsy_drone_racing.envs.real_race_env_client import RealMultiDroneRaceEnvClient
+    from lsy_drone_racing.envs.real_race_client_env import RealMultiDroneRaceEnvClient
 
 logger = logging.getLogger(__name__)
 

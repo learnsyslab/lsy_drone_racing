@@ -17,7 +17,7 @@ from pathlib import Path
 import fire
 import rclpy
 
-from lsy_drone_racing.envs.real_race_host import CrazyflieRealRaceHost
+from lsy_drone_racing.envs.real_race_host_env import CrazyflieRealRaceHost
 from lsy_drone_racing.utils import load_config
 
 logger = logging.getLogger(__name__)
