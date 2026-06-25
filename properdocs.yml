@@ -8,6 +8,8 @@ docs_dir: docs
 
 theme:
   name: material
+  logo: img/logo_white.png
+  favicon: img/logo.png
   features:
     - content.code.copy
     - content.code.select
@@ -23,15 +25,15 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: blue
-      accent: light blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: blue
-      accent: light blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to light mode
@@ -96,6 +98,9 @@ markdown_extensions:
   - def_list
   - toc:
       permalink: true
+
+extra_css:
+  - stylesheets/extra.css
 
 extra:
   social:
