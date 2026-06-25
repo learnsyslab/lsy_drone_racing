@@ -12,9 +12,6 @@ To implement your own controller, you need to implement a `Controller` class in 
 !!! warning
     You are not allowed to modify the interface of the [Controller](../control/controller.md) class. Doing so will make your controller incompatible with the deployment environment and we won't be able to run your controller on our setup.
 
-!!! warning
-    Many students are enthusiastic about deep reinforcement learning and try to use it to solve the challenge. While you are completely free in choosing your control algorithm, we know from experience that training good agents is non-trivial, requires significant compute, and can be difficult to transfer into the real world setup. Students taking this approach should make sure they already have some experience with RL, and take their policies to the real world setup early to address potential sim2real issues.
-
 ## Simulation
 
 To get you started, we provide a simulation environment that attempts to reproduce the real-world behavior of the drones as faithfully as possible. You should use this environment to develop and tune your controller. The simulation can also be used to train data-driven controllers that require large amounts of samples, e.g., for reinforcement learning.
