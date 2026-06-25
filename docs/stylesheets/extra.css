@@ -18,6 +18,9 @@
 
 /* Make the navigation logo larger */
 .md-header__button.md-logo {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.6rem;
   padding: 0;
 }
 
@@ -25,4 +28,12 @@
 .md-header__button.md-logo svg {
   height: 2rem;
   width: auto;
+}
+
+.md-header__button.md-logo::after {
+  background: url("../img/adr_logo.svg") center / contain no-repeat;
+  content: "";
+  display: block;
+  height: 1.35rem;
+  width: 3.97rem;
 }
