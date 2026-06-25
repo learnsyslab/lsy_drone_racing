@@ -335,7 +335,8 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Note:
         This environment is designed for single-drone racing. For multi-drone racing, use the
-        [RealMultiDroneRaceEnv][lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv] class instead.
+        [RealMultiDroneRaceEnv][lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv] class
+        instead.
     """
 
     def __init__(
@@ -351,9 +352,9 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
         Action space:
             The action space is a single action vector for the drone with the environment rank.
-            See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more information. Depending on the control mode, it
-            is either a 13D desired drone state setpoint, or a 4D desired attitude and collective
-            thrust setpoint.
+            See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+            information. Depending on the control mode, it is either a 13D desired drone state
+            setpoint, or a 4D desired attitude and collective thrust setpoint.
 
         Observation space:
             The observation space is a dictionary containing the state of all drones in the race.
@@ -423,7 +424,8 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Action space:
         The action space is a **single** action vector for the drone with the environment rank.
-        See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more information.
+        See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+        information.
 
     Warning:
         The action space differs from the action space of the simulated counterpart. This deviation
