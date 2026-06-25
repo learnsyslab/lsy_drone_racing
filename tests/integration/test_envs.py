@@ -4,7 +4,7 @@ import gymnasium
 import jax
 import jax.numpy as jp
 import pytest
-from drone_models import available_models
+from crazyflow.dynamics.core import Dynamics
 
 import lsy_drone_racing  # noqa: F401, environment registrations
 from lsy_drone_racing.envs.drone_race import DroneRaceEnv
@@ -36,15 +36,15 @@ def skip_unavailable_device(device: str):
         pytest.skip(f"{device} device not available")
 
 
-@pytest.mark.parametrize("physics", available_models.keys())
+@pytest.mark.parametrize("dynamics", Dynamics)
 @pytest.mark.parametrize("config_file", CONFIG_FILES["DroneRacing-v0"])
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.integration
-def test_single_drone_envs(config_file: str, physics: str, device: str):
-    """Test the simulation environments with different physics modes and config files."""
+def test_single_drone_envs(config_file: str, dynamics: str, device: str):
+    """Test the simulation environments with different dynamics modes and config files."""
     config = load_config(Path(__file__).parents[2] / "config" / config_file)
-    assert hasattr(config.sim, "physics"), "Physics mode is not set"
-    config.sim.physics = physics  # override physics mode
+    assert hasattr(config.sim, "dynamics"), "dynamics mode is not set"
+    config.sim.dynamics = dynamics.value  # override dynamics mode
     assert hasattr(config.env, "id"), "Environment ID is not set"
     skip_unavailable_device(device)
 
@@ -78,15 +78,15 @@ def test_single_drone_envs(config_file: str, physics: str, device: str):
     env.close()
 
 
-@pytest.mark.parametrize("physics", available_models.keys())
+@pytest.mark.parametrize("dynamics", Dynamics)
 @pytest.mark.parametrize("config_file", CONFIG_FILES["MultiDroneRacing-v0"])
 @pytest.mark.parametrize("device", DEVICES)
 @pytest.mark.integration
-def test_multi_drone_envs(config_file: str, physics: str, device: str):
-    """Test the simulation environments with different physics modes and config files."""
+def test_multi_drone_envs(config_file: str, dynamics: str, device: str):
+    """Test the simulation environments with different dynamics modes and config files."""
     config = load_config(Path(__file__).parents[2] / "config" / config_file)
-    assert hasattr(config.sim, "physics"), "Physics mode is not set"
-    config.sim.physics = physics
+    assert hasattr(config.sim, "dynamics"), "dynamics mode is not set"
+    config.sim.dynamics = dynamics.value
     assert hasattr(config.env, "id"), "Environment ID is not set"
     skip_unavailable_device(device)
 

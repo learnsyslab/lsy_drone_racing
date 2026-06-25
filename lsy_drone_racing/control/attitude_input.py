@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pygame
-from drone_models.core import load_params
+from crazyflow.control.core import load_params as load_control_params
+from crazyflow.control.mellinger import force_torque2rotor_vel
+from crazyflow.dynamics import available_dynamics
+from crazyflow.dynamics.core import load_params
 from scipy.spatial.transform import Rotation as R
 
 from lsy_drone_racing.control import Controller
@@ -35,11 +38,12 @@ class AttitudeController(Controller):
         super().__init__(obs, info, config)
         self.freq = config.env.freq
 
-        # For more info on the models, check out https://github.com/learnsyslab/drone-models
-        drone_params = load_params(config.sim.physics, config.sim.drone_model)
+        # For more info on the models, check out https://github.com/learnsyslab/crazyflow
+        drone_params = load_params(available_dynamics[config.sim.dynamics], config.sim.drone)
+        thrust_params = load_control_params(force_torque2rotor_vel, config.sim.drone)
         self.drone_mass = drone_params["mass"]
-        self.thrust_min = drone_params["thrust_min"] * 4
-        self.thrust_max = drone_params["thrust_max"] * 4
+        self.thrust_min = thrust_params["thrust_min"] * 4
+        self.thrust_max = thrust_params["thrust_max"] * 4
 
         self.kp = np.array([0.4, 0.4, 1.25])
         self.ki = np.array([0.05, 0.05, 0.05])

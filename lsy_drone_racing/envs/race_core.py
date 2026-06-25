@@ -31,10 +31,12 @@ import jax
 import jax.numpy as jp
 import mujoco
 import numpy as np
+from crazyflow.control.core import load_params
+from crazyflow.control.mellinger import force_torque2rotor_vel
 from crazyflow.sim import Sim
+from crazyflow.sim.pipeline import append_fn, insert_fn_before
 from crazyflow.sim.sim import seed_sim, sync_sim2mjx, use_box_collision
 from crazyflow.utils import leaf_replace
-from drone_controllers.mellinger.params import ForceTorqueParams
 from flax.struct import dataclass
 from gymnasium import spaces
 from scipy.spatial.transform import Rotation as R
@@ -69,8 +71,8 @@ class EnvData:
     """Struct holding the data of all auxiliary variables for the environment.
 
     This dataclass stores the dynamic and static state of the environment that is not directly
-    part of the physics simulation. It includes information about gate progress, drone status,
-    and environment boundaries. Static variables are initialized once and do not change during the
+    part of the drone simulation. It includes information about gate progress, drone status, and
+    environment boundaries. Static variables are initialized once and do not change during the
     episode.
 
     Args:
@@ -210,13 +212,13 @@ class EnvSettings:
         )
 
 
-def build_action_space(control_mode: Literal["state", "attitude"], drone_model: str) -> spaces.Box:
+def build_action_space(control_mode: Literal["state", "attitude"], drone: str) -> spaces.Box:
     """Create the action space for the environment.
 
     Args:
         control_mode: The control mode to use. Either "state" for full-state control
             or "attitude" for attitude control.
-        drone_model: Drone model of the environment.
+        drone: Drone model of the environment.
 
     Returns:
         A Box space representing the action space for the specified control mode.
@@ -224,8 +226,8 @@ def build_action_space(control_mode: Literal["state", "attitude"], drone_model: 
     if control_mode == "state":
         return spaces.Box(low=-np.inf, high=np.inf, shape=(13,))
     if control_mode == "attitude":
-        params = ForceTorqueParams.load(drone_model)
-        thrust_min, thrust_max = params.thrust_min * 4, params.thrust_max * 4
+        params = load_params(force_torque2rotor_vel, drone)
+        thrust_min, thrust_max = params["thrust_min"] * 4, params["thrust_max"] * 4
         return spaces.Box(
             np.array([-np.pi / 2, -np.pi / 2, -np.pi / 2, thrust_min], dtype=np.float32),
             np.array([np.pi / 2, np.pi / 2, np.pi / 2, thrust_max], dtype=np.float32),
@@ -266,13 +268,13 @@ class RaceCoreEnv:
 
     This environment simulates a drone racing scenario where a single drone navigates through a
     series of gates in a predefined track. It supports various configuration options for
-    randomization, disturbances, and physics models.
+    randomization, disturbances, and dynamics models.
 
     The environment provides:
 
     * A customizable track with gates and obstacles
     * Configurable simulation and control frequencies
-    * Support for different physics models (e.g., identified dynamics, analytical dynamics)
+    * Support for different dynamics models (e.g., identified or from first principles)
     * Randomization of drone properties and initial conditions
     * Disturbance modeling for realistic flight conditions
     * Symbolic expressions for advanced control techniques (optional)
@@ -355,8 +357,8 @@ class RaceCoreEnv:
         self.sim = Sim(
             n_worlds=n_envs,
             n_drones=n_drones,
-            physics=sim_config.physics,
-            drone_model=sim_config.drone_model,
+            dynamics=sim_config.dynamics,
+            drone=sim_config.drone,
             control=control_mode,
             freq=sim_config.freq,
             state_freq=freq,
@@ -547,7 +549,7 @@ class RaceCoreEnv:
 
     def build_apply_action_fn(self) -> Callable[[Array, EnvData, EnvSettings], EnvData]:
         """Build a function that applies the action to the simulation."""
-        action_space = build_action_space(self.sim.control, self.sim.drone_model)
+        action_space = build_action_space(self.sim.control, self.sim.drone)
         if self.sim.control == "state":
             ctrl_fn = F.state_control
         elif self.sim.control == "attitude":
@@ -637,13 +639,11 @@ class RaceCoreEnv:
         self.sim.data = self.sim.data.replace(states=states)
         self.sim.build_default_data()
         # Build the reset randomizations and disturbances into the sim itself
-        self.sim.reset_pipeline = self.sim.reset_pipeline + (build_drone_reset_fn(randomizations),)
+        append_fn(self.sim.reset_pipeline, build_reset_fn(randomizations))
         self.sim.build_reset_fn()
         if dist := self.settings.disturbances.get("dynamics"):
             disturbance_fn = build_dynamics_disturbance_fn(dist)
-            self.sim.step_pipeline = (
-                self.sim.step_pipeline[:2] + (disturbance_fn,) + self.sim.step_pipeline[2:]
-            )
+            insert_fn_before(self.sim.step_pipeline, "integration", disturbance_fn)
             self.sim.build_step_fn()
 
     def _load_track_into_sim(self, track: ConfigDict):
@@ -791,7 +791,9 @@ def _mark_drones_for_reset(data: EnvData) -> EnvData:
 def _load_contact_masks(sim: Sim) -> Array:
     """Load contact masks for the simulation that zero out irrelevant contacts per drone."""
     sim.contacts()  # Trigger initial contact information computation
-    contact = sim.mjx_data._impl.contact
+    contact = sim.mjx_data._impl.contact.dist
+    print(contact)
+    assert False
     n_contacts = len(contact.geom1[0])
     masks = np.zeros((sim.n_drones, n_contacts), dtype=bool)
     # We only need one world to create the mask
@@ -851,7 +853,7 @@ def rng_spec2fn(fn_spec: dict) -> Callable:
     return random_fn
 
 
-def build_drone_reset_fn(randomizations: dict) -> Callable[[SimData, Array], SimData]:
+def build_reset_fn(randomizations: dict) -> Callable[[SimData, Array], SimData]:
     """Build the reset hook for the simulation."""
     randomization_fns = ()
     for target, rng in sorted(randomizations.items()):
@@ -869,7 +871,7 @@ def build_drone_reset_fn(randomizations: dict) -> Callable[[SimData, Array], Sim
             case _:
                 raise ValueError(f"Invalid target: {target}")
 
-    def reset_fn(data: SimData, mask: Array) -> SimData:
+    def reset_fn(data: SimData, _: SimData, mask: Array) -> SimData:
         for randomize_fn in randomization_fns:
             data = randomize_fn(data, mask)
         return data

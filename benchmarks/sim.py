@@ -130,11 +130,11 @@ def time_sim_reset(
 def time_sim_step(
     n_tests: int = 10,
     number: int = 1,
-    physics_mode: str = "first_principles",
+    dynamics: str = "first_principles",
     n_envs: int = 1,
     device: str = "cpu",
 ) -> NDArray[np.floating]:
-    modify_config_code = f"""config.sim.physics = '{physics_mode}'\n"""
+    modify_config_code = f"""config.sim.dynamics = '{dynamics}'\n"""
     _env_setup_code = env_setup_code.format(num_envs=n_envs, device=device)
     setup = load_config_code + modify_config_code + _env_setup_code + "\nenv.reset()"
     stmt = """env.step(env.action_space.sample())"""
@@ -162,11 +162,11 @@ def time_multi_drone_reset(
 def time_multi_drone_step(
     n_tests: int = 10,
     number: int = 100,
-    physics_mode: str = "first_principles",
+    dynamics: str = "first_principles",
     n_envs: int = 1,
     device: str = "cpu",
 ) -> NDArray[np.floating]:
-    modify_config_code = f"""config.sim.physics = '{physics_mode}'\n"""
+    modify_config_code = f"""config.sim.dynamics = '{dynamics}'\n"""
     env_setup_code = multi_drone_env_setup_code.format(num_envs=n_envs, device=device)
 
     setup = load_multi_drone_config_code + modify_config_code + env_setup_code + "\nenv.reset()"

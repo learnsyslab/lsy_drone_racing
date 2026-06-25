@@ -18,17 +18,17 @@ real_track_objects = true
 [[deploy.drones]]
 id = 10
 channel = 100
-drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
+drone = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
 
 
 [sim]
-# Physics options:
+# Dynamics options:
 # "first_principles": first_principles (physics based) model
 # "so_rpy": Simplified identified model.
 # "so_rpy_rotor": Simplified identified model with rotor dynamics.
 # "so_rpy_rotor_drag": Simplified identified model with rotor dynamics and drag.
-physics = "first_principles"
-drone_model = "cf21B_500"       # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
+dynamics = "first_principles"
+drone = "cf21B_500"       # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
 freq = 500                      # Simulation frequency, in Hz
 attitude_freq = 500             # Controller frequency, in Hz. This frequency is used to simulate the onboard controller, NOT for the environment's step function
 render = true                   # Enable/disable Crazyflow's GUI

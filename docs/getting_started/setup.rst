@@ -32,8 +32,6 @@ In Simulation
 
 - `lsy_drone_racing <https://github.com/learnsyslab/lsy_drone_racing>`_ – environments and scripts for simulation and deployment
 - `crazyflow <https://github.com/learnsyslab/crazyflow>`_ – drone simulator
-- `drone-models <https://github.com/learnsyslab/drone-models>`_ – Crazyflie dynamics models
-- `drone-controllers <https://github.com/learnsyslab/drone-controllers>`_ – controller implementations
 
 On Hardware
 ~~~~~~~~~~~~
@@ -246,7 +244,7 @@ Development
 Work on Existing Dependencies
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to do more in-depth development or understand the used packages (`crazyflow <https://github.com/learnsyslab/crazyflow>`_, `drone-models <https://github.com/learnsyslab/drone-models>`_, `drone-controllers <https://github.com/learnsyslab/drone-controllers>`_, `drone-estimators <https://github.com/learnsyslab/drone-estimators>`_) better, you can fork and install all of those packages separately in editable mode. If you find bugs or other have improvements, feel free to `submit a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_ or `create an issue <https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue>`_ to help us improve the code. The installation procedure is the same for all packages:
+If you want to do more in-depth development or understand the used packages (`crazyflow <https://github.com/learnsyslab/crazyflow>`_, `drone-estimators <https://github.com/learnsyslab/drone-estimators>`_) better, you can fork and install all of those packages separately in editable mode. If you find bugs or other have improvements, feel free to `submit a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_ or `create an issue <https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue>`_ to help us improve the code. The installation procedure is the same for all packages:
 
 .. code-block:: bash
 

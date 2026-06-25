@@ -41,18 +41,13 @@ To get started, visit our [official documentation](https://lsy-drone-racing.read
 
 ## Dependencies
 
-This project builds upon several open-source packages developed by the [Learning Systems Lab (LSY)](https://www.ce.cit.tum.de/lsy/home/) at TUM.  
-You can explore these related projects:
-
-- [**crazyflow**](https://github.com/learnsyslab/crazyflow) – A high-speed, high-fidelity drone simulator with strong sim-to-real performance.  
-- [**drone-models**](https://github.com/learnsyslab/drone-models) – A collection of accurate drone models for simulation and model-based control.  
-- [**drone-controllers**](https://github.com/learnsyslab/drone-controllers) – Controllers for the Crazyflie quadrotor.  
+This project builds upon [**crazyflow**](https://github.com/learnsyslab/crazyflow), an open-source, high-speed, high-fidelity drone simulator with strong sim-to-real performance developed by the [Learning Systems Lab (LSY)](https://www.ce.cit.tum.de/lsy/home/) at TUM.
 
 ---
 
 ## Difficulty Levels
 
-Each task setup — from track design to physics configuration — is defined by a TOML file (e.g., [`level0.toml`](config/level0.toml)).  
+Each task setup — from track design to dynamics configuration — is defined by a TOML file (e.g., [`level0.toml`](config/level0.toml)).  
 The configuration files specify progressive difficulty levels from easy (0) to hard (3):
 
 |      Evaluation Scenario      | Rand. Inertial Properties | Randomized Obstacles, Gates | Random Tracks |             Notes              |

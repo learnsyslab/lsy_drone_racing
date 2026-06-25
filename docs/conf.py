@@ -30,7 +30,6 @@ autodoc_member_order = "bysource"
 autodoc_mock_imports = [
     "cflib2",
     "crazyflow",
-    "drone_models",
     "drone_estimators",
     "torch",
     "rclpy",

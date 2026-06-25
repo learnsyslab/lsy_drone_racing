@@ -14,7 +14,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from drone_models.core import load_params
+from crazyflow.dynamics import available_dynamics
+from crazyflow.dynamics.core import load_params
 
 from lsy_drone_racing.control.attitude_controller import AttitudeController
 from lsy_drone_racing.utils import load_config
@@ -197,7 +198,7 @@ def main() -> None:
     drone_name = f"cf{drone_config['id']}"
     radio_id = args.rank if args.radio_id is None else args.radio_id
     home_pos = np.array(config.env.track.drones[args.rank]["pos"], dtype=np.float32)
-    drone_params = load_params("first_principles", drone_config["drone_model"])
+    drone_params = load_params(available_dynamics[config.sim.dynamics], drone_config["drone"])
 
     logger.info("Initializing ROS for %s.", drone_name)
     rclpy.init()

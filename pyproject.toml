@@ -30,9 +30,7 @@ sim = [
     "gymnasium[array-api] >= 1.2.0",
     "ml-collections >= 1.0",
     "packaging >= 24.0",
-    "drone-models",
-    "drone-controllers",
-    "crazyflow>=0.1.0",
+    "crazyflow==0.2.0",
     "jax >= 0.7",
     "warp-lang",
 ]

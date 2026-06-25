@@ -3,7 +3,7 @@ from pathlib import Path
 import gymnasium
 import numpy as np
 import pytest
-from drone_models import available_models
+from crazyflow.dynamics.core import Dynamics
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 
 from lsy_drone_racing.utils import load_config, load_controller
@@ -14,7 +14,7 @@ from lsy_drone_racing.utils import load_config, load_controller
 def test_controllers(controller_file: str):
     config = load_config(Path(__file__).parents[2] / "config/level0.toml")
     config.sim.gui = False
-    config.sim.physics = "first_principles"
+    config.sim.dynamics = Dynamics.first_principles.value
     ctrl_cls = load_controller(
         Path(__file__).parents[2] / f"lsy_drone_racing/control/{controller_file}"
     )
@@ -43,11 +43,11 @@ def test_controllers(controller_file: str):
 
 @pytest.mark.integration
 @pytest.mark.parametrize("controller", ["controller", "mpc", "rl"])  # TODO add rl when available
-@pytest.mark.parametrize("physics", available_models.keys())
-def test_attitude_controller(physics: str, controller: str):
+@pytest.mark.parametrize("dynamics", Dynamics)
+def test_attitude_controller(dynamics: Dynamics, controller: str):
     config = load_config(Path(__file__).parents[2] / "config/level0.toml")
     config.sim.gui = False
-    config.sim.physics = physics
+    config.sim.dynamics = dynamics.value
     ctrl_cls = load_controller(
         Path(__file__).parents[2] / f"lsy_drone_racing/control/attitude_{controller}.py"
     )
@@ -77,17 +77,17 @@ def test_attitude_controller(physics: str, controller: str):
 
 @pytest.mark.integration
 @pytest.mark.parametrize("yaw", [0, np.pi / 2, np.pi, 3 * np.pi / 2])
-@pytest.mark.parametrize("physics", ["first_principles"])
-def test_trajectory_controller_finish(yaw: float, physics: str):
+@pytest.mark.parametrize("dynamics", [Dynamics.first_principles])
+def test_trajectory_controller_finish(yaw: float, dynamics: str):
     """Test if the trajectory controller can finish the track.
 
     To catch bugs that only occur with orientations other than the unit quaternion, we test if the
     controller can finish the track with different desired yaws.
 
-    Does not work for sys_id physics mode, since it assumes a 0 yaw angle.
+    Does not work for sys_id dynamics mode, since it assumes a 0 yaw angle.
     """
     config = load_config(Path(__file__).parents[2] / "config/level0.toml")
-    config.sim.physics = physics
+    config.sim.dynamics = dynamics.value
     config.sim.gui = False
     ctrl_cls = load_controller(
         Path(__file__).parents[2] / "lsy_drone_racing/control/state_controller.py"

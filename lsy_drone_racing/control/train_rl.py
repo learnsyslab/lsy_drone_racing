@@ -4,7 +4,7 @@ import random
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 import fire
 import gymnasium as gym
@@ -15,10 +15,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import wandb
+from crazyflow.dynamics import Dynamics
 from crazyflow.envs.drone_env import DroneEnv
 from crazyflow.envs.norm_actions_wrapper import NormalizeActions
 from crazyflow.sim.data import SimData
-from crazyflow.sim.physics import Physics
+from crazyflow.sim.pipeline import insert_fn_before
 from crazyflow.sim.visualize import draw_line, draw_points
 from crazyflow.utils import leaf_replace
 from gymnasium import spaces
@@ -132,9 +133,8 @@ class RandTrajEnv(DroneEnv):
         *,
         num_envs: int = 1,
         max_episode_time: float = 15.0,
-        physics: Literal["so_rpy_rotor_drag", "first_principles"]
-        | Physics = Physics.first_principles,
-        drone_model: str = "cf21B_500",
+        dynamics: Dynamics = Dynamics.first_principles,
+        drone: str = "cf21B_500",
         freq: int = 500,
         disturbances: ConfigDict | None = None,
         device: str = "cpu",
@@ -147,20 +147,20 @@ class RandTrajEnv(DroneEnv):
             trajectory_time: Total time for completing the figure-eight trajectory in seconds.
             num_envs: Number of environments to run in parallel.
             max_episode_time: Maximum episode time in seconds.
-            physics: Physics backend to use.
-            drone_model: Drone model of the environment.
+            dynamics: Dynamics backend to use.
+            drone: Drone model of the environment.
             freq: Frequency of the simulation.
             disturbances: Disturbance configuration.
             device: Device to use for the simulation.
         """
         # Override reset randomization function
-        self._reset_randomization = self.build_reset_randomization_fn(physics)
+        self._reset_randomization = self.build_reset_randomization_fn(dynamics)
 
         super().__init__(
             num_envs=num_envs,
             max_episode_time=max_episode_time,
-            physics=physics,
-            drone_model=drone_model,
+            dynamics=dynamics,
+            drone=drone,
             freq=freq,
             device=device,
             reset_randomization=self._reset_randomization,
@@ -192,9 +192,7 @@ class RandTrajEnv(DroneEnv):
         self.disturbances = {mode: rng_spec2fn(spec) for mode, spec in specs.items()}
         if "dynamics" in self.disturbances:
             disturbance_fn = build_dynamics_disturbance_fn(self.disturbances["dynamics"])
-            self.sim.step_pipeline = (
-                self.sim.step_pipeline[:2] + (disturbance_fn,) + self.sim.step_pipeline[2:]
-            )
+            insert_fn_before(self.sim.step_pipeline, "integrate", disturbance_fn)
             self.sim.build_step_fn()
 
         # Update observation space
@@ -310,7 +308,7 @@ class RandTrajEnv(DroneEnv):
         terminate = jp.any((pos[:, 0, :] < lower_bounds) | (pos[:, 0, :] > upper_bounds), axis=-1)
         return terminate
 
-    def build_reset_randomization_fn(self, physics: str) -> Callable[[SimData, Array], SimData]:
+    def build_reset_randomization_fn(self, dynamics: str) -> Callable[[SimData, Array], SimData]:
         """Reset randomization."""
 
         # Spin up rotors to help takeoff
@@ -328,7 +326,7 @@ class RandTrajEnv(DroneEnv):
             data = data.replace(states=leaf_replace(data.states, mask, rotor_vel=rotor_vel))
             return data
 
-        match physics:
+        match dynamics:
             case "first_principles":
                 return _reset_randomization_first_principles
             case "so_rpy" | "so_rpy_rotor" | "so_rpy_rotor_drag":
@@ -479,8 +477,8 @@ def make_envs(
         n_samples=10,
         num_envs=num_envs,
         freq=config.env.freq,
-        drone_model=config.sim.drone_model,
-        physics=config.sim.physics,
+        drone=config.sim.drone,
+        dynamics=config.sim.dynamics,
         disturbances=config.env.disturbances,
         device=jax_device,
     )

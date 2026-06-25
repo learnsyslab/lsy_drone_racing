@@ -14,9 +14,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
-from drone_models.core import load_params
-from drone_models.so_rpy import symbolic_dynamics_euler
-from drone_models.utils.rotation import ang_vel2rpy_rates
+from crazyflow.control.core import load_params as load_control_params
+from crazyflow.control.mellinger import force_torque2rotor_vel
+from crazyflow.dynamics.core import load_params
+from crazyflow.dynamics.so_rpy import dynamics, symbolic_dynamics_euler
+from crazyflow.dynamics.utils.rotation import ang_vel2rpy_rates
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 
@@ -27,13 +29,11 @@ if TYPE_CHECKING:
 
 
 def create_acados_model(parameters: dict) -> AcadosModel:
-    """Creates an acados model from a symbolic drone_model."""
-    # For more info on the models, check out https://github.com/learnsyslab/drone-models
+    """Creates an acados model from the symbolic drone dynamics."""
+    # For more info on the models, check out https://github.com/learnsyslab/crazyflow
     X_dot, X, U, _ = symbolic_dynamics_euler(
         mass=parameters["mass"],
         gravity_vec=parameters["gravity_vec"],
-        J=parameters["J"],
-        J_inv=parameters["J_inv"],
         acc_coef=parameters["acc_coef"],
         cmd_f_coef=parameters["cmd_f_coef"],
         rpy_coef=parameters["rpy_coef"],
@@ -211,7 +211,10 @@ class AttitudeMPC(Controller):
         )
         self._waypoints_yaw = self._waypoints_pos[:, 0] * 0
 
-        self.drone_params = load_params("so_rpy", config.sim.drone_model)
+        self.drone_params = load_params(dynamics, config.sim.drone)
+        thrust_params = load_control_params(force_torque2rotor_vel, config.sim.drone)
+        self.drone_params["thrust_min"] = 4 * thrust_params["thrust_min"]
+        self.drone_params["thrust_max"] = 4 * thrust_params["thrust_max"]
         self._acados_ocp_solver, self._ocp = create_ocp_solver(
             self._T_HORIZON, self._N, self.drone_params
         )

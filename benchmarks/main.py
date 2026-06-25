@@ -36,7 +36,7 @@ def main(
             name="Racing env steps", timings=timings / number, n_envs=vec_size, device=device
         )
         timings = step_fn(
-            n_tests=n_tests, number=number, physics_mode="so_rpy", n_envs=vec_size, device=device
+            n_tests=n_tests, number=number, dynamics="so_rpy", n_envs=vec_size, device=device
         )
         print_benchmark_results(
             name="Racing env steps (so_rpy backend)",

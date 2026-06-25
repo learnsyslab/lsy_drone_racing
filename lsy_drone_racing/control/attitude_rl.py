@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-from drone_models.core import load_params
+from crazyflow.control.core import load_params as load_control_params
+from crazyflow.control.mellinger import force_torque2rotor_vel
+from crazyflow.dynamics import available_dynamics
+from crazyflow.dynamics.core import load_params
 from scipy.interpolate import CubicSpline
 
 from lsy_drone_racing.control import Controller
@@ -40,11 +43,12 @@ class AttitudeRL(Controller):
         super().__init__(obs, info, config)
         self.freq = config.env.freq
 
-        # For more info on the models, check out https://github.com/learnsyslab/drone-models
-        drone_params = load_params(config.sim.physics, config.sim.drone_model)
+        # For more info on the models, check out https://github.com/learnsyslab/crazyflow
+        drone_params = load_params(available_dynamics[config.sim.dynamics], config.sim.drone)
+        thrust_params = load_control_params(force_torque2rotor_vel, config.sim.drone)
         self.drone_mass = drone_params["mass"]
-        self.thrust_min = drone_params["thrust_min"] * 4  # min total thrust
-        self.thrust_max = drone_params["thrust_max"] * 4  # max total thrust
+        self.thrust_min = thrust_params["thrust_min"] * 4  # min total thrust
+        self.thrust_max = thrust_params["thrust_max"] * 4  # max total thrust
 
         # Set num of stacked obs
         self.n_obs = 2
