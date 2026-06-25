@@ -332,36 +332,6 @@ No plugins found, falling back on no decorations
 
 Note that starting the simulation with `-r` from a terminal inside VSCode might cause this warning. This will cause your window to not have any decorations (close, minimize, maximize buttons). You can safely ignore this warning. If you want to get rid of it, start the simulation from a regular terminal outside of VSCode.
 
-### GLIBCXX Error
-
-If you encounter errors related to `LIBGL` and `GLIBCXX_3.4.30` when running the simulation, try the following steps:
-
-1. Run the simulation in verbose mode:
-
-    ```bash
-    LIBGL_DEBUG=verbose python scripts/sim.py
-    ```
-
-2. Check if your system has the required library:
-
-    ```bash
-    strings /usr/lib/x86_64-linux-gnu/libstdc++.so.6 | grep GLIBCXX_3.4.30
-    ```
-
-    Or check in your mamba environment:
-
-    ```bash
-    strings /<PATH-TP-YOUR-MAMBA>/envs/<ENV-NAME>/lib/libstdc++.so.6 | grep GLIBCXX_3.4.30
-    ```
-
-3. If the library is missing, install it:
-
-    ```bash
-    mamba install -c conda-forge gcc=12.1.0
-    ```
-
-4. If the error persists, update your `LD_LIBRARY_PATH` to include your mamba environment's lib folder.
-
 ## Next Steps
 
 Once you have successfully set up the project, you can proceed to explore the simulation environment, develop your racing algorithms, and participate in the online competition. Refer to other sections of the documentation for more information on using the project and developing your racing strategies.
