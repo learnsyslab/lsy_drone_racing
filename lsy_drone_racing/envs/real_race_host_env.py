@@ -55,6 +55,7 @@ class CrazyflieWorker:
         drone_model: str,
         start_pos: NDArray[np.floating],
         return_to_start_event: mp.synchronize.Event,
+        return_height_ready_event: mp.synchronize.Event,
         assigned_return_heights: mp.Array,
         stop_event: mp.synchronize.Event,
         init_barrier: mp.synchronize.Barrier,
@@ -71,6 +72,7 @@ class CrazyflieWorker:
             drone_model: Drone model name for loading thrust/PWM parameters.
             start_pos: Start position the drone should return to after the race.
             return_to_start_event: Set while the worker is executing the return maneuver.
+            return_height_ready_event: Set by the host once this drone's return height is ready.
             assigned_return_heights: Shared host-assigned return heights for all drones.
             stop_event: Set by the host to request a shutdown.
             init_barrier: Shared barrier; all workers and the host call :meth:`wait` once
@@ -87,6 +89,7 @@ class CrazyflieWorker:
         self.drone_model = drone_model
         self.start_pos = np.array(start_pos, dtype=np.float32)
         self.return_to_start_event = return_to_start_event
+        self.return_height_ready_event = return_height_ready_event
         self.assigned_return_heights = assigned_return_heights
         self.stop_event = stop_event
         self.init_barrier = init_barrier
@@ -230,14 +233,12 @@ class CrazyflieWorker:
         finally:
             self.return_to_start_event.clear()
 
-    # TODO add locking for the mp array
     def _wait_for_return_height(self) -> float:
         """Wait until the host assigns a return height for this drone."""
         while rclpy.ok() and not self.stop_event.is_set():
-            return_height = self.assigned_return_heights[self.rank]
-            if not np.isnan(return_height):
-                return float(return_height)
-            time.sleep(0.01)
+            if self.return_height_ready_event.wait(timeout=0.1):
+                with self.assigned_return_heights.get_lock():
+                    return float(self.assigned_return_heights[self.rank])
         raise RuntimeError("Return height assignment was interrupted")
 
     def run(self):
@@ -279,6 +280,7 @@ class CrazyflieWorker:
         drone_model: str,
         start_pos: NDArray[np.floating],
         return_to_start_event: mp.synchronize.Event,
+        return_height_ready_event: mp.synchronize.Event,
         assigned_return_heights: mp.Array,
         stop_event: mp.synchronize.Event,
         control_mode: Literal["attitude", "state"],
@@ -298,6 +300,7 @@ class CrazyflieWorker:
             drone_model=drone_model,
             start_pos=start_pos,
             return_to_start_event=return_to_start_event,
+            return_height_ready_event=return_height_ready_event,
             assigned_return_heights=assigned_return_heights,
             stop_event=stop_event,
             control_mode=control_mode,
@@ -362,6 +365,7 @@ class CrazyflieRealRaceHost:
         self._mp_ctx = mp.get_context("spawn")
         self._processes = []
         self._return_to_start_events = []
+        self._return_height_ready_events = []
         self._assigned_return_heights = None
         self._stop_event = None
         self._init_barrier = None
@@ -382,7 +386,9 @@ class CrazyflieRealRaceHost:
         """Set up the ROS2 communication node with all publishers and subscribers."""
         self._comm = RaceCommNode("lsy_race_host")
         node = self._comm.node
-        self._host_state_pub = node.create_publisher(RealHostState, "lsy_drone_racing/host_state", 10)
+        self._host_state_pub = node.create_publisher(
+            RealHostState, "lsy_drone_racing/host_state", 10
+        )
         self._subs = []
         for rank in range(self._num_drones):
 
@@ -396,7 +402,9 @@ class CrazyflieRealRaceHost:
                     logger.info(
                         f"Client {rank} stopped, assigning return height {return_height:.2f}m"
                     )
-                    self._assigned_return_heights[rank] = return_height
+                    with self._assigned_return_heights.get_lock():
+                        self._assigned_return_heights[rank] = return_height
+                    self._return_height_ready_events[rank].set()
                     self._finish_order.append(rank)
                     self._clients_stopped[rank] = True
 
@@ -408,6 +416,7 @@ class CrazyflieRealRaceHost:
                     10,
                 )
             )
+
         logger.debug("ROS2 communication initialized")
 
     def check_track(
@@ -454,8 +463,11 @@ class CrazyflieRealRaceHost:
         logger.debug(f"Spawning processes for {self._num_drones} Crazyflie drones...")
         self._processes = []
         self._return_to_start_events = [self._mp_ctx.Event() for _ in range(self._num_drones)]
+        self._return_height_ready_events = [
+            self._mp_ctx.Event() for _ in range(self._num_drones)
+        ]
         self._assigned_return_heights = self._mp_ctx.Array(
-            "d", [float("nan")] * self._num_drones, lock=False
+            "d", [float("nan")] * self._num_drones, lock=True
         )
         self._stop_event = self._mp_ctx.Event()
         self._init_barrier = self._mp_ctx.Barrier(self._num_drones + 1)
@@ -471,6 +483,7 @@ class CrazyflieRealRaceHost:
                     self._drone_models[rank],
                     self.drones_pose.pos[rank],
                     self._return_to_start_events[rank],
+                    self._return_height_ready_events[rank],
                     self._assigned_return_heights,
                     self._stop_event,
                     self._drone_control_mode[rank],
@@ -588,7 +601,12 @@ class CrazyflieRealRaceHost:
         logger.info("Clock calibration complete")
 
     def _publish_host_state(
-        self, *, host_ready: bool, race_started: bool, race_finished: bool, elapsed_time: float = 0.0
+        self,
+        *,
+        host_ready: bool,
+        race_started: bool,
+        race_finished: bool,
+        elapsed_time: float = 0.0,
     ) -> None:
         """Publish the current host lifecycle state."""
         self._host_state_pub.publish(
