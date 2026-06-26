@@ -40,7 +40,7 @@ gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
     "cflib2 @ git+https://github.com/ratheron/crazyflie-lib-python-v2.git@bccd34092c22392b941bbef9bc5a3718b9d27da0",
-    "drone-estimators",
+    "drone-estimators @ git+https://github.com/learnsyslab/drone-estimators.git",
 ]
 # option[rl]: train rl policy
 rl = ["torch == 2.8.0", "wandb"]
@@ -130,8 +130,9 @@ cmd = [
     "drone_estimators.ros_nodes.ros2_node",
     "--drone_name",
     "{{drone_name}}",
+    "--legacy"
 ]
-args = [{ "arg" = "drone_name", "default" = "cf10" }]
+args = [{ "arg" = "drone_name", "default" = "cf52" }]
 
 ## feature [deploy]
 [tool.pixi.feature.deploy.dependencies]
