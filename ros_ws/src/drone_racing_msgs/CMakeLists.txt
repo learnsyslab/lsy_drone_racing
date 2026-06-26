@@ -13,9 +13,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Observations.msg"
   "msg/StepResult.msg"
   "msg/RaceEnd.msg"
-  "msg/RealHostReady.msg"
-  "msg/RealRaceStart.msg"
-  "msg/RealClientState.msg"
+  "msg/RealHostState.msg"
+  "msg/RealClientAction.msg"
   "srv/RealCalibrateClock.srv"
   DEPENDENCIES builtin_interfaces std_msgs
 )

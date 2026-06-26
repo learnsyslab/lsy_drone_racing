@@ -1,2 +1,0 @@
-float64 elapsed_time
-float64 timestamp

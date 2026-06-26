@@ -17,11 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import jax
 import numpy as np
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
-from drone_racing_msgs.msg import (  # type: ignore[import-untyped]
-    RealClientState,
-    RealHostReady,
-    RealRaceStart,
-)
+from drone_racing_msgs.msg import RealClientAction, RealHostState  # type: ignore[import-untyped]
 from drone_racing_msgs.srv import RealCalibrateClock  # type: ignore[import-untyped]
 from gymnasium import Env
 
@@ -97,13 +93,14 @@ class RealMultiDroneRaceEnvClient(Env):
         self.data = EnvData.create(self.n_drones, self.n_gates, self.n_obstacles)
 
         self._comm: RaceCommNode | None = None
-        self._client_state_pub: Any = None
+        self._client_action_pub: Any = None
         self._clock_calib_client: Any = None
 
         self._host_ready_event = threading.Event()
         self._race_started = False
         self._race_start_time = 0.0
         self._clock_offset = 0.0
+        self._host_finished = False
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
         """Reset the environment and wait for the host to signal readiness.
@@ -156,7 +153,7 @@ class RealMultiDroneRaceEnvClient(Env):
                 else:
                     dummy_action = np.zeros(13, dtype=np.float32)
                     dummy_action[:3] = self._ros_connector.pos[self.drone_name]
-                self._send_state_update(dummy_action, stopped=False)
+                self._send_action_update(dummy_action, stopped=False)
                 time.sleep(1 / self.freq)
 
         threading.Thread(target=send_state_messages, daemon=True).start()
@@ -221,7 +218,7 @@ class RealMultiDroneRaceEnvClient(Env):
         if self.control_mode == "attitude" and self._ros_connector:
             self._ros_connector.publish_cmd(action)
 
-        self._send_state_update(action, terminated)
+        self._send_action_update(action, terminated)
 
         return self.obs(), 0.0, terminated, False, self.info()
 
@@ -255,8 +252,8 @@ class RealMultiDroneRaceEnvClient(Env):
     def close(self):
         """Send a final stop message and close all ROS connections."""
         logger.info("Closing environment...")
-        if self._client_state_pub:
-            self._send_state_update(
+        if self._client_action_pub:
+            self._send_action_update(
                 np.zeros(4 if self.control_mode == "attitude" else 13), stopped=True
             )
         if self._comm:
@@ -265,8 +262,8 @@ class RealMultiDroneRaceEnvClient(Env):
             self._ros_connector.close()
         logger.debug("Environment closed")
 
-    def _send_state_update(self, action: NDArray, stopped: bool):
-        """Publish a :class:`ClientStateMessage` to the host.
+    def _send_action_update(self, action: NDArray, stopped: bool):
+        """Publish a :class:`ClientActionMessage` to the host.
 
         The timestamp is adjusted by the calibrated clock offset so the host can
         measure accurate latency without clock skew.
@@ -276,14 +273,13 @@ class RealMultiDroneRaceEnvClient(Env):
             stopped: Whether this client has finished or crashed.
         """
         elapsed_time = time.time() - self._race_start_time if self._race_started else 0.0
-        msg = RealClientState()
+        msg = RealClientAction()
         msg.drone_rank = self.rank
         msg.action = action.tolist() if isinstance(action, np.ndarray) else list(action)
         msg.elapsed_time = elapsed_time
         msg.timestamp = time.time() + self._clock_offset
-        msg.controller_finished = stopped
-        msg.next_gate_idx = int(self.data.target_gate[self.rank])
-        self._client_state_pub.publish(msg)
+        msg.controller_stopped = stopped
+        self._client_action_pub.publish(msg)
 
     def _init_ros_connectors(self):
         """Open ROS connector for own drone (estimator) and others (TF)."""
@@ -300,26 +296,23 @@ class RealMultiDroneRaceEnvClient(Env):
         self._comm = RaceCommNode(f"lsy_race_client_{self.rank}")
         node = self._comm.node
 
-        def on_host_ready(msg: RealHostReady):
-            self._host_ready_event.set()
+        def on_host_state(msg: RealHostState):
             latency_ms = (time.time() - msg.timestamp) * 1000
-            logger.debug(f"Host ready (latency: {latency_ms:.2f}ms)")
+            if msg.host_ready and not self._host_ready_event.is_set():
+                self._host_ready_event.set()
+                logger.debug(f"Host ready (latency: {latency_ms:.2f}ms)")
+            if msg.race_started and not self._race_started:
+                self._race_started = True
+                self._race_start_time = time.time() - msg.elapsed_time
+                logger.debug(f"Race started (latency: {latency_ms:.2f}ms)")
+            self._host_finished = bool(msg.race_finished)
 
-        def on_race_start(msg: RealRaceStart):
-            self._race_started = True
-            self._race_start_time = time.time() - msg.elapsed_time
-            self._host_terminate = bool(msg.race_finished)
-
-        self._subs = [
-            node.create_subscription(
-                RealHostReady, "lsy_drone_racing/host/ready", on_host_ready, 10
-            ),
-            node.create_subscription(
-                RealRaceStart, "lsy_drone_racing/host/race_start", on_race_start, 10
-            ),
-        ]
-        self._client_state_pub = node.create_publisher(
-            RealClientState, f"lsy_drone_racing/client/drone_{self.rank}/state", 10
+        # TODO Why do I need to save this if unused?
+        self._sub = node.create_subscription(
+            RealHostState, "lsy_drone_racing/host_state", on_host_state, 10
+        )
+        self._client_action_pub = node.create_publisher(
+            RealClientAction, f"lsy_drone_racing/client/drone_{self.rank}/action", 10
         )
         self._clock_calib_client = node.create_client(
             RealCalibrateClock, "lsy_drone_racing/calibrate_clock"
