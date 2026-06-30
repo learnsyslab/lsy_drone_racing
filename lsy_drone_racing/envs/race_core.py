@@ -791,9 +791,7 @@ def _mark_drones_for_reset(data: EnvData) -> EnvData:
 def _load_contact_masks(sim: Sim) -> Array:
     """Load contact masks for the simulation that zero out irrelevant contacts per drone."""
     sim.contacts()  # Trigger initial contact information computation
-    contact = sim.mjx_data._impl.contact.dist
-    print(contact)
-    assert False
+    contact = sim.mjx_data._impl.contact
     n_contacts = len(contact.geom1[0])
     masks = np.zeros((sim.n_drones, n_contacts), dtype=bool)
     # We only need one world to create the mask
