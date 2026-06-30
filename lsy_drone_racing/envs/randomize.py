@@ -129,7 +129,6 @@ def build_random_track_fn(
     gate_excl_r: float = 1.0,
     obstacle_excl_r: float = 0.8,
     obstacle_obstacle_excl_r: float = 0.3,
-    gate_corridor_width: float = 0.5,
     obstacle_corridor_width: float = 0.5,
     yaw_range: float = 0.75,
     grid_res: int = 40,
@@ -152,7 +151,6 @@ def build_random_track_fn(
         gate_excl_r: Min distance [m] between consecutive gates.
         obstacle_excl_r: Min distance [m] from gates to obstacles.
         obstacle_obstacle_excl_r: Min distance [m] between obstacles.
-        gate_corridor_width: Half-width [m] of the flight corridor masked out for gate placement.
         obstacle_corridor_width: Half-width [m] of the corridor used for obstacle placement.
         yaw_range: Maximum yaw offset [rad] from the travel direction for gate orientation.
         grid_res: Number of grid nodes along the x-axis. The y-axis count is derived from the arena
@@ -229,18 +227,17 @@ def build_random_track_fn(
         k_gates, k_yaws, k_obs = keys[:N], keys[N : 2 * N], keys[2 * N :]
         prev_xy = drone_pos[:2]
         gate_clear = obs_clear = _clearance(prev_xy, drone_excl_r)
-        gate_soft = jp.ones((grid_h, grid_w), jp.float32)
+        no_preference = jp.ones((grid_h, grid_w), jp.float32)
 
         gates, obstacles = [], []
         for i in range(N):  # N is usually small, so this unrolled loop instead of scan is fine.
-            gate_xy = _sample(gate_clear, gate_soft, k_gates[i])
+            gate_xy = _sample(gate_clear, no_preference, k_gates[i])
             travel = gate_xy - prev_xy
             yaw = jax.random.uniform(k_yaws[i], minval=-yaw_range, maxval=yaw_range)
             yaw = (yaw + jp.arctan2(travel[1], travel[0])) % (2 * jp.pi)
             gates.append(jp.array([gate_xy[0], gate_xy[1], yaw]))
             gate_clear = jp.minimum(gate_clear, _clearance(gate_xy, gate_excl_r))
             obs_clear = jp.minimum(obs_clear, _clearance(gate_xy, obstacle_excl_r))
-            gate_soft = gate_soft * (1.0 - _corridor(prev_xy, gate_xy, gate_corridor_width))
 
             corridor = _corridor(prev_xy, gate_xy, obstacle_corridor_width)
             obs_xy = _sample(obs_clear, corridor, k_obs[i])
