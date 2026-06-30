@@ -22,18 +22,19 @@ classifiers = [
 ########################
 # Pip Dependencies
 ########################
-dependencies = ["fire >= 0.6.0", "numpy", "toml >= 0.10.2"]
-
-[project.optional-dependencies]
-# option[sim]: basic simulation
-sim = [
+dependencies = [
+    "fire >= 0.6.0",
+    "numpy",
+    "toml >= 0.10.2",
     "gymnasium[array-api] >= 1.2.0",
     "ml-collections >= 1.0",
     "packaging >= 24.0",
-    "crazyflow==0.2.0",
+    "crazyflow==0.2.1",
     "jax >= 0.7",
     "warp-lang",
 ]
+
+[project.optional-dependencies]
 # option[gpu]: simulation with gpu
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
@@ -83,13 +84,13 @@ evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the con
 
 ### environments
 [tool.pixi.environments]
-default = { features = ["sim"], solve-group = "default" }
-deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
-gpu = { features = ["sim", "gpu"], solve-group = "default" }
-tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
-gpu-tests = { features = ["sim", "gpu", "tests"], solve-group = "default" }
-gamepad = { features = ["sim", "gamepad"], solve-group = "default" }
-profile = { features = ["sim", "profile", "gpu"], solve-group = "default" }
+default = { solve-group = "default" }
+deploy = { features = ["gpu", "kilted", "deploy"] }
+gpu = { features = ["gpu"], solve-group = "default" }
+tests = { features = ["rl", "tests"], solve-group = "default" }
+gpu-tests = { features = ["gpu", "tests"], solve-group = "default" }
+gamepad = { features = ["gamepad"], solve-group = "default" }
+profile = { features = ["profile", "gpu"], solve-group = "default" }
 
 ## feature [kilted]
 [tool.pixi.feature.kilted]
