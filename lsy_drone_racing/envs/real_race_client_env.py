@@ -101,6 +101,7 @@ class RealMultiDroneRaceEnvClient(Env):
         self._race_start_time = 0.0
         self._clock_offset = 0.0
         self._host_finished = False
+        self._client_ready = False
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
         """Reset the environment and wait for the host to signal readiness.
@@ -146,7 +147,7 @@ class RealMultiDroneRaceEnvClient(Env):
         logger.info("Waiting for host ready message...")
         stop_sending = threading.Event()
 
-        def send_state_messages():
+        def send_action_messages():
             while not stop_sending.is_set():
                 if self.control_mode == "attitude":
                     dummy_action = np.zeros(4, dtype=np.float32)
@@ -156,7 +157,7 @@ class RealMultiDroneRaceEnvClient(Env):
                 self._send_action_update(dummy_action, stopped=False)
                 time.sleep(1 / self.freq)
 
-        threading.Thread(target=send_state_messages, daemon=True).start()
+        threading.Thread(target=send_action_messages, daemon=True).start()
 
         if not self._host_ready_event.wait(timeout=timeout):
             stop_sending.set()
@@ -262,6 +263,10 @@ class RealMultiDroneRaceEnvClient(Env):
             self._ros_connector.close()
         logger.debug("Environment closed")
 
+    def set_client_ready(self):
+        """Mark the client as fully initialized and ready for race start."""
+        self._client_ready = True
+
     def _send_action_update(self, action: NDArray, stopped: bool):
         """Publish a :class:`ClientActionMessage` to the host.
 
@@ -278,6 +283,7 @@ class RealMultiDroneRaceEnvClient(Env):
         msg.action = action.tolist() if isinstance(action, np.ndarray) else list(action)
         msg.elapsed_time = elapsed_time
         msg.timestamp = time.time() + self._clock_offset
+        msg.client_ready = self._client_ready
         msg.controller_stopped = stopped
         self._client_action_pub.publish(msg)
 

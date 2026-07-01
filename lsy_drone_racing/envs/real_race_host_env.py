@@ -393,7 +393,7 @@ class CrazyflieRealRaceHost:
         for rank in range(self._num_drones):
 
             def on_client_action(msg: RealClientAction, rank: int = rank):
-                if not self._clients_ready[rank]:
+                if msg.client_ready and not self._clients_ready[rank]:
                     logger.debug(f"Client {rank} ready")
                     self._clients_ready[rank] = True
                 if msg.controller_stopped and not self._clients_stopped[rank]:

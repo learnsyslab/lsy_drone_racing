@@ -62,6 +62,7 @@ def main(
         control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
         controller_cls = load_controller(control_path / config_obj.controller[drone_rank]["file"])
         controller = controller_cls(obs, info, extract_config_for_rank(config_obj, drone_rank))
+        env.unwrapped.set_client_ready()
 
         env.unwrapped.lock_until_race_start(timeout=120.0)
         logger.info(
