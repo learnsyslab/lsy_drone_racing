@@ -1,9 +1,9 @@
 """Real-world drone racing environments.
 
 This module contains the environments for controlling a single or multiple drones in a real-world
-race track. It mirrors the :mod:`~lsy_drone_racing.envs.drone_race` module as closely as possible,
-but uses data from real-world observations from motion capture systems and sends actions to the
-real drones.
+race track. It mirrors the [drone_race][lsy_drone_racing.envs.drone_race] module as closely as
+possible, but uses data from real-world observations from motion capture systems and sends actions
+to the real drones.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ class RealRaceCoreEnv:
             drones: List of all drones in the race, including their channel and id.
             rank: Rank of the drone that is controlled by this environment.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
@@ -335,7 +335,8 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Note:
         This environment is designed for single-drone racing. For multi-drone racing, use the
-        :class:`~lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv` class instead.
+        [RealMultiDroneRaceEnv][lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv] class
+        instead.
     """
 
     def __init__(
@@ -351,14 +352,14 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
         Action space:
             The action space is a single action vector for the drone with the environment rank.
-            See :class:`~.RealRaceCoreEnv` for more information. Depending on the control mode, it
-            is either a 13D desired drone state setpoint, or a 4D desired attitude and collective
-            thrust setpoint.
+            See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+            information. Depending on the control mode, it is either a 13D desired drone state
+            setpoint, or a 4D desired attitude and collective thrust setpoint.
 
         Observation space:
             The observation space is a dictionary containing the state of all drones in the race.
             It mimics exactly the observation space of
-            :class:`lsy_drone_racing.envs.drone_race.DroneRaceEnv`.
+            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][].
 
         Note:
             rclpy must be initialized before creating this environment.
@@ -366,7 +367,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         Args:
             drones: List of all drones in the race, including their channel and id.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
@@ -423,7 +424,8 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Action space:
         The action space is a **single** action vector for the drone with the environment rank.
-        See :class:`~.RealRaceCoreEnv` for more information.
+        See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+        information.
 
     Warning:
         The action space differs from the action space of the simulated counterpart. This deviation
@@ -433,7 +435,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
     Observation space:
         The observation space is a dictionary containing the state of all drones in the race.
         It mimics exactly the observation space of
-        :class:`lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv`.
+        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][].
 
     Note:
         Each instance of this environment controls only one drone (specified by rank), but provides
@@ -457,7 +459,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             drones: List of all drones in the race, including their channel and id.
             rank: Rank of the drone that is controlled by this environment.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.

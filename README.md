@@ -18,8 +18,8 @@
 [Ruff Check]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/ruff.yml/badge.svg?style=flat-square  
 [Ruff Check URL]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/ruff.yml  
 
-[Documentation Status]: https://readthedocs.org/projects/lsy-drone-racing/badge/?version=latest  
-[Documentation Status URL]: https://lsy-drone-racing.readthedocs.io/en/latest/?badge=latest  
+[Documentation Status]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/docs.yml/badge.svg  
+[Documentation Status URL]: https://learnsyslab.github.io/lsy_drone_racing/  
 
 [Tests]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/testing.yml/badge.svg  
 [Tests URL]: https://github.com/learnsyslab/lsy_drone_racing/actions/workflows/testing.yml  
@@ -28,14 +28,14 @@
 
 ## Introduction
 
-**LSY Drone Racing** is a course project designed to help you develop and evaluate autonomous drone racing algorithms — both in simulation and on real Crazyflie hardware.  
+**LSY Autonomous Drone Racing** is a course project designed to help you develop and evaluate autonomous drone racing algorithms — both in simulation and on real Crazyflie hardware.  
 Whether you’re new to drones or an experienced developer, this project provides a structured and practical way to explore high-speed autonomy, control, and perception in dynamic environments.
 
 ---
 
 ## Documentation
 
-To get started, visit our [official documentation](https://lsy-drone-racing.readthedocs.io/en/latest/getting_started/general.html).
+To get started, visit our [official documentation](https://learnsyslab.github.io/lsy_drone_racing/getting_started/general/).
 
 ---
 
@@ -75,6 +75,6 @@ Competition results visible in the [competition branch](https://github.com/learn
 
 The competition environment always uses **difficulty level 2**.  
 If your code fails the automated tests, it is likely to encounter the same issues in our evaluation environment.  
-For full details, refer to the [documentation](https://lsy-drone-racing.readthedocs.io/en/latest/).
+For full details, refer to the [documentation](https://learnsyslab.github.io/lsy_drone_racing/).
 
 ---

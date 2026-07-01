@@ -13,9 +13,9 @@ The environment is designed to be configurable, supporting:
 * Vectorized execution for parallel training
 
 This module is primarily used as a base for the higher-level environments in
-:mod:`~lsy_drone_racing.envs.drone_race` and :mod:`~lsy_drone_racing.envs.multi_drone_race`,
-which provide Gymnasium-compatible interfaces for reinforcement learning, MPC and other control
-techniques.
+[drone_race][lsy_drone_racing.envs.drone_race] and
+[multi_drone_race][lsy_drone_racing.envs.multi_drone_race], which provide Gymnasium-compatible
+interfaces for reinforcement learning, MPC and other control techniques.
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ class EnvData:
     and environment boundaries. Static variables are initialized once and do not change during the
     episode.
 
-    Args:
+    Attributes:
         target_gate: Current target gate index for each drone in each environment
         gates_visited: Boolean flags indicating which gates have been visited by each drone
         obstacles_visited: Boolean flags indicating which obstacles have been detected

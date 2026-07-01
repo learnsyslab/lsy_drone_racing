@@ -6,12 +6,13 @@ function signatures.
 
 To give you an idea of what you need to do, we also include some example implementations:
 
-* :class:`~.Controller`: The abstract base class defining the interface for all controllers.
-* :class:`TrajectoryController <lsy_drone_racing.control.trajectory_controller.TrajectoryController>`:
+* [Controller][lsy_drone_racing.control.controller.Controller]: The abstract base class defining the
+  interface for all controllers.
+* [StateController][lsy_drone_racing.control.state_controller.StateController]:
   A controller that follows a pre-defined trajectory using cubic spline interpolation.
-* :class:`AttitudeController <lsy_drone_racing.control.attitude_controller.AttitudeController>`: A
+* [AttitudeController][lsy_drone_racing.control.attitude_controller.AttitudeController]: A
   controller that follows a pre-defined attitude using cubic spline interpolation.
-"""  # noqa: E501, required for linking in the docs
+"""
 
 from lsy_drone_racing.control.controller import Controller
 
