@@ -28,7 +28,7 @@ dependencies = ["fire >= 0.6.0", "numpy", "toml >= 0.10.2"]
 sim = [
     "gymnasium[array-api] >= 1.2.0",
     "ml-collections >= 1.0",
-    "packaging >= 24.0, < 26",
+    "packaging >= 24.0, <26",
     "drone-models",
     "drone-controllers",
     "crazyflow>=0.1.0",
@@ -66,6 +66,7 @@ platforms = ["linux-64"]
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
+packaging = ">=24,<26"
 ruff = "*"
 # Compilers needed for acados
 compilers = ">=1.9.0, <1.11.0"
