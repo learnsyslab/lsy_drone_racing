@@ -45,7 +45,7 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.9.3
         with:
           manifest-path: student_code/pyproject.toml
-          pixi-version: v0.66.0
+          pixi-version: v0.70.0
           cache: true
           cache-write: false
           activate-environment: false
