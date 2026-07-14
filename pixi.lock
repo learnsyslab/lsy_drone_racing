@@ -888,7 +888,7 @@ environments:
       - conda: https://prefix.dev/robostack-kilted/linux-64/ros-kilted-zstd-vendor-0.32.0-np2py312h31f38b3_14.conda
       - conda: https://prefix.dev/robostack-kilted/linux-64/ros2-distro-mutex-0.12.0-kilted_14.conda
       - pypi: .
-      - pypi: git+https://github.com/ratheron/crazyflie-lib-python-v2.git?rev=bccd34092c22392b941bbef9bc5a3718b9d27da0#bccd34092c22392b941bbef9bc5a3718b9d27da0
+      - pypi: git+https://github.com/bitcraze/crazyflie-lib-python-v2.git?rev=d87b796#d87b796ed07ac0fd96d32c3d7b6c5f09cafc5330
       - pypi: https://files.pythonhosted.org/packages/01/8e/1e35281b8ab6d5d72ebe9911edcdffa3f36b04ed9d51dec6dd140396e220/scipy-1.17.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/05/98/716a473cfb24750858ddd5d14e6527539dd206583a46408d08eeb2844a75/trimesh-4.12.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0c/b6/156a8de1e1b47694f0e7de6675866936608d45dc68388fd017d36f8693be/simplejson-4.1.1-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl
@@ -15881,13 +15881,13 @@ packages:
   - jax>=0.7 ; extra == 'sim'
   - warp-lang ; extra == 'sim'
   - jax[cuda12] ; extra == 'gpu'
-  - cflib2 @ git+https://github.com/ratheron/crazyflie-lib-python-v2.git@bccd34092c22392b941bbef9bc5a3718b9d27da0 ; extra == 'deploy'
+  - cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@d87b796 ; extra == 'deploy'
   - drone-estimators ; extra == 'deploy'
   - torch==2.8.0 ; extra == 'rl'
   - wandb ; extra == 'rl'
   - pygame ; extra == 'gamepad'
   requires_python: '>=3.10'
-- pypi: git+https://github.com/ratheron/crazyflie-lib-python-v2.git?rev=bccd34092c22392b941bbef9bc5a3718b9d27da0#bccd34092c22392b941bbef9bc5a3718b9d27da0
+- pypi: git+https://github.com/bitcraze/crazyflie-lib-python-v2.git?rev=d87b796#d87b796ed07ac0fd96d32c3d7b6c5f09cafc5330
   name: cflib2
   version: 0.1.0
   requires_dist:

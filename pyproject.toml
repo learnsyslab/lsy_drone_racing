@@ -40,7 +40,7 @@ sim = [
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
-    "cflib2 @ git+https://github.com/ratheron/crazyflie-lib-python-v2.git@bccd34092c22392b941bbef9bc5a3718b9d27da0",
+    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@d87b796",
     "drone-estimators",
 ]
 # option[rl]: train rl policy
