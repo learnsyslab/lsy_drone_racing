@@ -76,6 +76,7 @@ class RealRaceCoreEnv:
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
+        lighthouse: bool = False,
     ):
         """Create a deployable version of the drone racing environment.
 
@@ -88,10 +89,19 @@ class RealRaceCoreEnv:
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
+            lighthouse: If True, localize the drone with its onboard Lighthouse estimate read back
+                from the drone instead of a motion capture system (no ROS, single drone only).
         """
-        assert rclpy.ok(), "ROS2 is not running. Please start ROS2 before creating a deploy env."
+        self.lighthouse = lighthouse
+        if not lighthouse:
+            assert rclpy.ok(), "ROS2 is not running. Start it before creating a deploy env."
         # Static env data
         self.n_drones = len(drones)
+        if lighthouse and self.n_drones > 1:
+            raise NotImplementedError(
+                "Lighthouse mode is only supported for a single drone: each process can only read "
+                "its own drone's onboard estimate, with no shared tracker for the others."
+            )
         self.gates, self.obstacles, self.drones = load_track(track)
         self.n_gates = len(self.gates.pos)
         self.n_obstacles = len(self.obstacles.pos)
@@ -113,8 +123,11 @@ class RealRaceCoreEnv:
             radio_channel=drone_config["channel"],
             drone_id=drone_config["id"],
             drone_name=self.drone_name,
+            lighthouse=lighthouse,
         )
-        self._ros_connector = ROSConnector(estimator_names=self.drone_names, timeout=10.0)
+        self._ros_connector = (
+            None if lighthouse else ROSConnector(estimator_names=self.drone_names, timeout=10.0)
+        )
         # Dynamic data
         self.data = EnvData.create(
             n_drones=self.n_drones, n_gates=self.n_gates, n_obstacles=self.n_obstacles
@@ -127,6 +140,12 @@ class RealRaceCoreEnv:
         # Update the position of gates and obstacles with the real positions measured from Mocap. If
         # disabled, they are equal to the nominal positions defined in the track config.
         if options.get("real_track_objects", True):
+            if self.lighthouse:
+                raise ValueError(
+                    "real_track_objects=True is not supported in lighthouse mode (no tracker "
+                    "to measure the gates/obstacles). Place the track at the configured "
+                    "coordinates and set real_track_objects=False."
+                )
             self._update_track_poses()
         if options.get("check_race_track", True):
             check_race_track(
@@ -138,17 +157,33 @@ class RealRaceCoreEnv:
                 nominal_obstacles_pos=self.obstacles.nominal_pos,
                 rng_config=self.randomizations,
             )
-        if options.get("check_drone_start_pos", True):
-            check_drone_start_pos(
-                nominal_pos=self.drones.pos[self.rank],
-                real_pos=self._ros_connector.pos[self.drone_name],
-                rng_config=self.randomizations,
-                drone_name=self.drone_name,
-            )
-        self.data.reset(np.stack([self._ros_connector.pos[n] for n in self.drone_names]))
 
-        self.drone.connect(timeout=10.0)
-        self.drone.reset(arm=True)
+        if self.lighthouse:
+            # The onboard estimate is only available after the drone is connected and its estimator
+            # has converged, so bring it up first and arm only once the start position checks out.
+            self.drone.connect(timeout=10.0)
+            self.drone.reset(arm=False)
+            drone_pos, *_ = self._drone_states()
+            if options.get("check_drone_start_pos", True):
+                check_drone_start_pos(
+                    nominal_pos=self.drones.pos[self.rank],
+                    real_pos=drone_pos[self.rank],
+                    rng_config=self.randomizations,
+                    drone_name=self.drone_name,
+                )
+            self.data.reset(drone_pos)
+            self.drone.arm()
+        else:
+            if options.get("check_drone_start_pos", True):
+                check_drone_start_pos(
+                    nominal_pos=self.drones.pos[self.rank],
+                    real_pos=self._ros_connector.pos[self.drone_name],
+                    rng_config=self.randomizations,
+                    drone_name=self.drone_name,
+                )
+            self.data.reset(np.stack([self._ros_connector.pos[n] for n in self.drone_names]))
+            self.drone.connect(timeout=10.0)
+            self.drone.reset(arm=True)
         self._last_drone_pos_update = 0  # Last time a position was sent to the drone estimator
 
         return self.obs(), self.info()
@@ -164,9 +199,8 @@ class RealRaceCoreEnv:
                 action[:3], action[3:6], action[6:9], action[9], action[10:]
             )
 
-        drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
+        drone_pos, drone_quat, _, _ = self._drone_states()
         assert drone_pos.dtype == np.float32, "Drone position must be of type float32"
-        drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         assert drone_quat.dtype == np.float32, "Drone quaternion must be of type float32"
         # Check if the drone is in the sensor range of the gates and obstacles
         dpos = drone_pos[:, None, :2] - self.gates.pos[None, :, :2]
@@ -192,6 +226,27 @@ class RealRaceCoreEnv:
             self._last_drone_pos_update = t
         return self.obs(), self.reward(), self.terminated(), self.truncated(), self.info()
 
+    def _drone_states(self) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        """Return stacked (pos, quat, vel, ang_vel) for all drones from the active source.
+
+        Uses the onboard Lighthouse estimate in lighthouse mode, otherwise the motion capture
+        system via ROS. All arrays are float32 to match the observation space.
+        """
+        if self.lighthouse:
+            state = self.drone.get_obs()
+            return (
+                state["pos"][None, ...],
+                state["quat"][None, ...],
+                state["vel"][None, ...],
+                state["ang_vel"][None, ...],
+            )
+        rc = self._ros_connector
+        pos = np.stack([rc.pos[drone] for drone in self.drone_names])
+        quat = np.stack([rc.quat[drone] for drone in self.drone_names])
+        vel = np.stack([rc.vel[drone] for drone in self.drone_names])
+        ang_vel = np.stack([rc.ang_vel[drone] for drone in self.drone_names])
+        return pos, quat, vel, ang_vel
+
     def obs(self) -> dict[str, NDArray]:
         """Return the observation of the environment."""
         # If gates/obstacles are in sensor range use the actual pose, otherwise use the nominal pose
@@ -204,10 +259,7 @@ class RealRaceCoreEnv:
         obstacles_pos = np.where(mask, self.obstacles.pos, self.obstacles.nominal_pos).astype(
             np.float32
         )
-        drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
-        drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
-        drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
-        drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
+        drone_pos, drone_quat, drone_vel, drone_ang_vel = self._drone_states()
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
@@ -311,7 +363,8 @@ class RealRaceCoreEnv:
                 self.drone.close(emergency_stop=True)
             finally:
                 # Close all ROS connections
-                self._ros_connector.close()
+                if self._ros_connector is not None:
+                    self._ros_connector.close()
 
 
 # region Single Drone Env
@@ -347,6 +400,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
+        lighthouse: bool = False,
     ):
         """Initialize the multi-drone environment.
 
@@ -372,6 +426,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
+            lighthouse: Use the onboard Lighthouse estimate instead of motion capture.
         """
         super().__init__(
             drones=drones,
@@ -381,6 +436,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
             randomizations=randomizations,
             sensor_range=sensor_range,
             control_mode=control_mode,
+            lighthouse=lighthouse,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:
@@ -452,6 +508,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
         randomizations: ConfigDict,
         sensor_range: float = 0.5,
         control_mode: Literal["state", "attitude"] = "state",
+        lighthouse: bool = False,
     ):
         """Initialize the multi-drone environment.
 
@@ -464,6 +521,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
             control_mode: Control mode of the drone.
+            lighthouse: Use the onboard Lighthouse estimate instead of motion capture.
         """
         super().__init__(
             drones=drones,
@@ -473,6 +531,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             randomizations=randomizations,
             sensor_range=sensor_range,
             control_mode=control_mode,
+            lighthouse=lighthouse,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:

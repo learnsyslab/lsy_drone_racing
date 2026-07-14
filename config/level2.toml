@@ -14,6 +14,10 @@ check_race_track = true
 check_drone_start_pos = true
 # Lets you practice your controller without putting up gates & obstacles, assumes nominal positions given below.
 real_track_objects = true
+# Use the onboard Lighthouse positioning estimate instead of a motion capture system. Requires a
+# Lighthouse deck + base stations, a single drone, and real_track_objects = false (no tracker can
+# measure the gates/obstacles). Defaults to false (motion capture).
+lighthouse = false
 
 [[deploy.drones]]
 id = 10
