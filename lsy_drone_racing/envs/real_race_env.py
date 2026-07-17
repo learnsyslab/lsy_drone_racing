@@ -176,25 +176,17 @@ class RealRaceCoreEnv:
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
 
-        progress = np.where(self.data.gate_progress < 0, 0, self.data.gate_progress)
-        gate_ids = self.gate_order_ids[progress]
-        gate_reverse = self.gate_order_reverse[progress]
+        gate_ids = self.gate_order_ids[self.data.gate_progress]
+        gate_reverse = self.gate_order_reverse[self.data.gate_progress]
         gate_pos = self.gates.pos[gate_ids]
         gate_quat = self.gates.quat[gate_ids]
 
         with jax.default_device(self.device):  # Ensure gate_passed runs on the CPU
             passed = gate_passed(
-                drone_pos,
-                self.data.last_drone_pos,
-                gate_pos,
-                gate_quat,
-                gate_reverse,
-                (0.45, 0.45),
+                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, gate_reverse, (0.45, 0.45)
             )
         active = self.data.gate_progress >= 0
-        self.data.gate_progress = np.where(
-            active, self.data.gate_progress + np.asarray(passed), -1
-        )
+        self.data.gate_progress = np.where(active, self.data.gate_progress + np.asarray(passed), -1)
         self.data.gate_progress[self.data.gate_progress >= self.n_gate_passes] = -1
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
@@ -221,7 +213,10 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
-        target_gate, target_gate_reverse = self._target_gate_obs()
+        target_gate = self.gate_order_ids[self.data.gate_progress]
+        target_gate = np.where(self.data.gate_progress < 0, -1, target_gate)
+        target_gate_reverse = self.gate_order_reverse[self.data.gate_progress]
+        target_gate_reverse = np.where(self.data.gate_progress < 0, False, target_gate_reverse)
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,

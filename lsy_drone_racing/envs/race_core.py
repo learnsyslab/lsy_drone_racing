@@ -690,7 +690,10 @@ class RaceCoreEnv:
 
 def obs(data: EnvData) -> dict[str, Array]:
     """Return the observation of the environment."""
-    target_gate, target_gate_reverse = _target_gate_obs(data)
+    target_gate = data.gate_order_ids[data.gate_progress]
+    target_gate = jp.where(data.gate_progress < 0, -1, target_gate)
+    target_gate_reverse = data.gate_order_reverse[data.gate_progress]
+    target_gate_reverse = jp.where(data.gate_progress < 0, False, target_gate_reverse)
     mask = data.gates_visited[..., None]
     sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[:, None])
     sensor_gates_quat = jp.where(mask, data.gates_quat[:, None], data.nominal_gates_quat[:, None])
@@ -788,9 +791,8 @@ def _update_target_gates(data: EnvData) -> EnvData:
     n_gate_passes = data.gate_order_ids.shape[0]
     gates_pos, gates_quat = data.gates_pos, data.gates_quat
     drone_pos = data.sim_data.states.pos
-    progress = jp.where(data.gate_progress < 0, 0, data.gate_progress)
-    gate_ids = data.gate_order_ids[progress]
-    reverse = data.gate_order_reverse[progress]
+    gate_ids = data.gate_order_ids[data.gate_progress]
+    reverse = data.gate_order_reverse[data.gate_progress]
     gate_pos = gates_pos[jp.arange(gates_pos.shape[0])[:, None], gate_ids]
     gate_quat = gates_quat[jp.arange(gates_quat.shape[0])[:, None], gate_ids]
     passed = gate_passed(drone_pos, data.last_drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
@@ -798,16 +800,6 @@ def _update_target_gates(data: EnvData) -> EnvData:
     gate_progress = data.gate_progress + passed * ~data.disabled_drones
     gate_progress = jp.where(gate_progress >= n_gate_passes, -1, gate_progress)
     return data.replace(gate_progress=gate_progress, last_drone_pos=data.sim_data.states.pos)
-
-
-def _target_gate_obs(data: EnvData) -> tuple[Array, Array]:
-    """Map internal waypoint progress to public observation fields."""
-    progress = jp.where(data.gate_progress < 0, 0, data.gate_progress)
-    gate_ids = data.gate_order_ids[progress]
-    reverse = data.gate_order_reverse[progress]
-    target_gate = jp.where(data.gate_progress < 0, -1, gate_ids)
-    target_gate_reverse = jp.where(data.gate_progress < 0, False, reverse)
-    return target_gate, target_gate_reverse
 
 
 def _mark_drones_for_reset(data: EnvData) -> EnvData:
