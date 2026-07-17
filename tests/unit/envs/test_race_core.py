@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
-from lsy_drone_racing.envs.race_core import _update_disabled_drones, _update_target_gates
+from lsy_drone_racing.envs.race_core import _update_disabled_drones, _update_target_gates, obs
 from lsy_drone_racing.utils import load_config
 
 CONFIG_PATH = Path(__file__).parents[3] / "config"
@@ -67,6 +67,7 @@ def test_obs_structure_and_initial_values():
         "vel",
         "ang_vel",
         "target_gate",
+        "target_gate_reverse",
         "gates_pos",
         "gates_quat",
         "gates_visited",
@@ -80,6 +81,7 @@ def test_obs_structure_and_initial_values():
     assert np.asarray(obs["gates_pos"]).ndim == 2
     assert np.asarray(obs["gates_pos"]).shape[1] == 3
     assert int(np.asarray(obs["target_gate"]).item()) == 0
+    assert not bool(np.asarray(obs["target_gate_reverse"]).item())
     env.close()
 
 
@@ -159,14 +161,14 @@ def test_terminated_false_after_reset():
 
 
 @pytest.mark.unit
-def test_terminated_true_when_target_gate_negative():
-    """Setting target_gate = -1 marks the drone disabled on the next step."""
+def test_terminated_true_when_gate_progress_negative():
+    """Setting gate_progress = -1 marks the drone disabled on the next step."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[...].set(-1))
+    env.unwrapped.data = data.replace(gate_progress=data.gate_progress.at[...].set(-1))
     _, _, terminated, _, _ = env.step(env.action_space.sample())
-    assert terminated, "terminated should be True when target_gate is -1"
+    assert terminated, "terminated should be True when gate_progress is -1"
     env.close()
 
 
@@ -244,8 +246,8 @@ def test_truncated_on_timeout_does_not_terminate():
 
 
 @pytest.mark.unit
-def test_gate_pass_increments_target_gate():
-    """Crossing the target gate's plane makes ``_update_target_gates`` increment target_gate."""
+def test_gate_pass_increments_gate_progress():
+    """Crossing the target gate's plane makes ``_update_target_gates`` increment gate_progress."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
@@ -268,26 +270,66 @@ def test_gate_pass_increments_target_gate():
 
     # Call _update_target_gates directly so physics doesn't overwrite our crafted positions.
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 1
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == 1
+    env.close()
+
+
+@pytest.mark.unit
+def test_gate_order_initial_obs_mapping():
+    """Initial observations must expose the configured next gate ID and direction."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [-2, 1]
+    env = make_env(track=config.env.track)
+    env_obs, _ = env.reset()
+    assert int(np.asarray(env_obs["target_gate"]).item()) == 1
+    assert bool(np.asarray(env_obs["target_gate_reverse"]).item())
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_not_passed_without_crossing():
-    """Moving around without crossing the gate plane leaves target_gate unchanged."""
+    """Moving around without crossing the gate plane leaves gate_progress unchanged."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
-    assert int(np.asarray(data.target_gate[0, 0])) == 0
+    assert int(np.asarray(data.gate_progress[0, 0])) == 0
     # Nominal step without any crafted crossing: drone still on the takeoff pad.
     new_data = _update_target_gates(data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == 0
+    env.close()
+
+
+@pytest.mark.unit
+def test_repeated_gate_obs_mapping_after_pass():
+    """After passing a repeated gate, obs must still point to that gate with the next direction."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [1, -1]
+    env = make_env(track=config.env.track)
+    env.reset()
+    data = env.unwrapped.data
+
+    gate_pos = np.asarray(data.gates_pos[0, 0])
+    gate_quat_xyzw = np.asarray(data.gates_quat[0, 0])
+    forward = R.from_quat(gate_quat_xyzw).apply(np.array([1.0, 0.0, 0.0]))
+
+    behind = gate_pos - 0.05 * forward
+    front = gate_pos + 0.05 * forward
+
+    new_last = data.last_drone_pos.at[0, 0, :].set(jp.asarray(behind))
+    new_pos = data.sim_data.states.pos.at[0, 0, :].set(jp.asarray(front))
+    new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
+    env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
+
+    new_data = _update_target_gates(env.unwrapped.data)
+    mapped_obs = obs(new_data)
+    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == 0
+    assert bool(np.asarray(mapped_obs["target_gate_reverse"][0, 0]))
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_pass_non_target_gate_does_not_increment():
-    """Crossing a gate that is not the current target must not increment target_gate."""
+    """Crossing a gate that is not the current target must not increment gate_progress."""
     from scipy.spatial.transform import Rotation as R
 
     env = make_env()
@@ -295,9 +337,9 @@ def test_gate_pass_non_target_gate_does_not_increment():
     data = env.unwrapped.data
     n_gates = data.gates_pos.shape[1]
     assert n_gates >= 2, "need at least 2 gates for this test"
-    assert int(np.asarray(data.target_gate[0, 0])) == 0
+    assert int(np.asarray(data.gate_progress[0, 0])) == 0
 
-    # Straddle gate 1 (the *next* gate) while target_gate is still 0.
+    # Straddle gate 1 (the *next* gate) while gate_progress is still 0.
     non_target_idx = 1
     gate_pos = np.asarray(data.gates_pos[0, non_target_idx])
     gate_quat_xyzw = np.asarray(data.gates_quat[0, non_target_idx])
@@ -312,7 +354,7 @@ def test_gate_pass_non_target_gate_does_not_increment():
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == 0
     env.close()
 
 
@@ -339,7 +381,7 @@ def test_gate_not_passed_in_reverse():
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == 0
     env.close()
 
 
@@ -369,13 +411,13 @@ def test_gate_not_passed_when_outside_gate_box():
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == 0
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_pass_at_last_gate_clamps_to_negative_one():
-    """Passing the final gate must set target_gate to -1 (course finished sentinel)."""
+    """Passing the final gate must set gate_progress to -1 (course finished sentinel)."""
     from scipy.spatial.transform import Rotation as R
 
     env = make_env()
@@ -383,9 +425,9 @@ def test_gate_pass_at_last_gate_clamps_to_negative_one():
     data = env.unwrapped.data
     n_gates = data.gates_pos.shape[1]
 
-    # Pre-advance target_gate to the last gate so _update_target_gates will check against it.
+    # Pre-advance gate_progress to the last gate so _update_target_gates will check against it.
     last_idx = n_gates - 1
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[0, 0].set(last_idx))
+    env.unwrapped.data = data.replace(gate_progress=data.gate_progress.at[0, 0].set(last_idx))
     data = env.unwrapped.data
 
     # Craft a forward crossing of the last gate.
@@ -402,7 +444,39 @@ def test_gate_pass_at_last_gate_clamps_to_negative_one():
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == -1
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == -1
+    mapped_obs = obs(new_data)
+    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == -1
+    assert not bool(np.asarray(mapped_obs["target_gate_reverse"][0, 0]))
+    env.close()
+
+
+@pytest.mark.unit
+def test_reverse_only_waypoint_can_finish_track():
+    """A reverse-only gate-order entry must be passable and finish the track."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [-1]
+    env = make_env(track=config.env.track)
+    env.reset()
+    data = env.unwrapped.data
+
+    gate_pos = np.asarray(data.gates_pos[0, 0])
+    gate_quat_xyzw = np.asarray(data.gates_quat[0, 0])
+    forward = R.from_quat(gate_quat_xyzw).apply(np.array([1.0, 0.0, 0.0]))
+
+    front = gate_pos + 0.05 * forward
+    behind = gate_pos - 0.05 * forward
+
+    new_last = data.last_drone_pos.at[0, 0, :].set(jp.asarray(front))
+    new_pos = data.sim_data.states.pos.at[0, 0, :].set(jp.asarray(behind))
+    new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
+    env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
+
+    new_data = _update_target_gates(env.unwrapped.data)
+    mapped_obs = obs(new_data)
+    assert int(np.asarray(new_data.gate_progress[0, 0])) == -1
+    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == -1
+    assert not bool(np.asarray(mapped_obs["target_gate_reverse"][0, 0]))
     env.close()
 
 

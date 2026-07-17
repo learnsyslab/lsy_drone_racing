@@ -104,7 +104,7 @@ def simulate(
             i += 1
 
         controller.episode_callback()  # Update the controller internal state and models.
-        log_episode_stats(obs, info, config, curr_time)
+        log_episode_stats(obs, info, config, curr_time, int(env.unwrapped.data.gate_progress[0, 0]))
         controller.episode_reset()
         ep_times.append(curr_time if obs["target_gate"] == -1 else None)
 
@@ -113,12 +113,13 @@ def simulate(
     return ep_times
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
+def log_episode_stats(
+    obs: dict, info: dict, config: ConfigDict, curr_time: float, race_progress: int
+):
     """Log the statistics of a single episode."""
-    gates_passed = obs["target_gate"]
-    if gates_passed == -1:  # The drone has passed the final gate
-        gates_passed = len(config.env.track.gates)
-    finished = gates_passed == len(config.env.track.gates)
+    n_gate_passes = len(config.env.track.get("gate_order", config.env.track.gates))
+    gates_passed = n_gate_passes if race_progress == -1 else race_progress
+    finished = race_progress == -1
     logger.info(
         f"Flight time (s): {curr_time}\nFinished: {finished}\nGates passed: {gates_passed}\n"
     )

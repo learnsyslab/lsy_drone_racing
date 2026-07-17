@@ -6,7 +6,7 @@ We use the Crazyflie nano quadcopter for our challenge. It is a small, low-cost 
 
 ## The Track
 
-Contrary to other drone racing challenges, this setup not only includes gates in the track but also obstacles that must be avoided by the drones. The current iteration consists of four gates and four obstacles. Gates must be traversed in the correct order and in the correct direction, as passing a gate in the opposite direction will not count as a successful pass. Once a gate has been successfully passed, traversing it again in reverse will not undo the completion; from that point on, the gate simply acts as another obstacle within the track.
+Contrary to other drone racing challenges, this setup not only includes gates in the track but also obstacles that must be avoided by the drones. The current iteration consists of four gates and four obstacles. Gates must be traversed in the configured order and in the configured direction, as passing a gate in the opposite direction will not count as a successful pass. Once a gate has been successfully passed, traversing it again in reverse will not undo the completion. However, the gate-order list may revisit the same physical gate multiple times, including in reverse, so only the current target entry in the order counts toward progress. 
 
 All details about the track elements are provided in the level files explained below. The track features two types of gates: tall gates and short gates. The tall gates have a height of 1.195 meters, while the short gates measure 0.695 meters. In both cases, the height is measured from the ground to the center of the gate. Each gate is square in shape, with an outer frame width of 0.72 meters and an inner opening width of 0.4 meters.
 

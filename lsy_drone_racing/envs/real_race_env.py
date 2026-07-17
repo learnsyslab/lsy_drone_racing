@@ -19,7 +19,7 @@ from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from drone_models.core import load_params
 from gymnasium import Env
 
-from lsy_drone_racing.envs.utils import gate_passed, load_track
+from lsy_drone_racing.envs.utils import gate_passed, load_gate_order, load_track
 from lsy_drone_racing.utils.checks import check_drone_start_pos, check_race_track
 from lsy_drone_racing.utils.crazyflie import Crazyflie
 
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 class EnvData:
     """Struct holding the data of all auxiliary variables for the environment."""
 
-    target_gate: NDArray
+    gate_progress: NDArray
     gates_visited: NDArray
     obstacles_visited: NDArray
     last_drone_pos: NDArray[np.float32]
@@ -42,7 +42,7 @@ class EnvData:
     def create(cls, n_drones: int, n_gates: int, n_obstacles: int) -> EnvData:
         """Create an instance of the EnvData class."""
         return EnvData(
-            target_gate=np.zeros(n_drones, dtype=int),
+            gate_progress=np.zeros(n_drones, dtype=int),
             gates_visited=np.zeros((n_drones, n_gates), dtype=bool),
             obstacles_visited=np.zeros((n_drones, n_obstacles), dtype=bool),
             last_drone_pos=np.zeros((n_drones, 3), dtype=np.float32),
@@ -50,7 +50,7 @@ class EnvData:
 
     def reset(self, last_drone_pos: NDArray[np.float32]):
         """Reset the environment data."""
-        self.target_gate[...] = 0
+        self.gate_progress[...] = 0
         self.gates_visited[...] = False
         self.obstacles_visited[...] = False
         self.last_drone_pos[...] = last_drone_pos
@@ -94,6 +94,8 @@ class RealRaceCoreEnv:
         self.n_drones = len(drones)
         self.gates, self.obstacles, self.drones = load_track(track)
         self.n_gates = len(self.gates.pos)
+        self.gate_order_ids, self.gate_order_reverse = load_gate_order(track, self.n_gates)
+        self.n_gate_passes = len(self.gate_order_ids)
         self.n_obstacles = len(self.obstacles.pos)
         self.pos_limit_low = np.array(track.safety_limits["pos_limit_low"])
         self.pos_limit_high = np.array(track.safety_limits["pos_limit_high"])
@@ -174,15 +176,26 @@ class RealRaceCoreEnv:
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
 
-        gate_pos = self.gates.pos[self.data.target_gate]
-        gate_quat = self.gates.quat[self.data.target_gate]
+        progress = np.where(self.data.gate_progress < 0, 0, self.data.gate_progress)
+        gate_ids = self.gate_order_ids[progress]
+        gate_reverse = self.gate_order_reverse[progress]
+        gate_pos = self.gates.pos[gate_ids]
+        gate_quat = self.gates.quat[gate_ids]
 
         with jax.default_device(self.device):  # Ensure gate_passed runs on the CPU
             passed = gate_passed(
-                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, (0.45, 0.45)
+                drone_pos,
+                self.data.last_drone_pos,
+                gate_pos,
+                gate_quat,
+                gate_reverse,
+                (0.45, 0.45),
             )
-        self.data.target_gate += np.asarray(passed)
-        self.data.target_gate[self.data.target_gate >= self.n_gates] = -1
+        active = self.data.gate_progress >= 0
+        self.data.gate_progress = np.where(
+            active, self.data.gate_progress + np.asarray(passed), -1
+        )
+        self.data.gate_progress[self.data.gate_progress >= self.n_gate_passes] = -1
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
         # Send vicon position updates to the drone at a fixed frequency irrespective of the env freq
@@ -208,12 +221,14 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
+        target_gate, target_gate_reverse = self._target_gate_obs()
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
             "vel": drone_vel,
             "ang_vel": drone_ang_vel,
-            "target_gate": self.data.target_gate,
+            "target_gate": target_gate,
+            "target_gate_reverse": target_gate_reverse,
             "gates_pos": gates_pos,
             "gates_quat": gates_quat,
             "gates_visited": self.data.gates_visited,
@@ -233,11 +248,11 @@ class RealRaceCoreEnv:
         Returns:
             Reward for the current state.
         """
-        return -1.0 * (self.data.target_gate == -1)  # Implicit float conversion
+        return -1.0 * (self.data.gate_progress == -1)  # Implicit float conversion
 
     def terminated(self) -> NDArray:
         """Check if the episode is terminated."""
-        terminated = self.data.target_gate == -1
+        terminated = self.data.gate_progress == -1
         terminated[self.rank] |= not self.drone.is_connected
         terminated |= np.any(
             (self.pos_limit_low > self.data.last_drone_pos)
@@ -253,6 +268,15 @@ class RealRaceCoreEnv:
     def info(self) -> dict:
         """Return an info dictionary containing additional information about the environment."""
         return {}
+
+    def _target_gate_obs(self) -> tuple[NDArray, NDArray]:
+        """Map internal waypoint progress to public observation fields."""
+        progress = np.where(self.data.gate_progress < 0, 0, self.data.gate_progress)
+        target_gate = self.gate_order_ids[progress]
+        target_gate = np.where(self.data.gate_progress < 0, -1, target_gate)
+        target_gate_reverse = self.gate_order_reverse[progress]
+        target_gate_reverse = np.where(self.data.gate_progress < 0, False, target_gate_reverse)
+        return target_gate, target_gate_reverse
 
     def _update_track_poses(self):
         """Update the track poses from the motion capture system."""
@@ -286,9 +310,10 @@ class RealRaceCoreEnv:
         drone_pos = np.zeros((self.n_drones, 3), dtype=np.float32)
         gate_pos = np.zeros((self.n_drones, 3), dtype=np.float32)
         gate_quat = np.zeros((self.n_drones, 4), dtype=np.float32)
+        reverse = np.zeros(self.n_drones, dtype=bool)
         with jax.default_device(self.device):
             jax.block_until_ready(
-                gate_passed(drone_pos, drone_pos, gate_pos, gate_quat, (0.45, 0.45))
+                gate_passed(drone_pos, drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
             )
 
     def close(self):
@@ -359,7 +384,9 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         Observation space:
             The observation space is a dictionary containing the state of all drones in the race.
             It mimics exactly the observation space of
-            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][].
+            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][]. In particular, `target_gate`
+            reports the next gate's 0-based ID and `target_gate_reverse` reports whether that gate
+            must be passed in reverse direction.
 
         Note:
             rclpy must be initialized before creating this environment.
@@ -435,7 +462,9 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
     Observation space:
         The observation space is a dictionary containing the state of all drones in the race.
         It mimics exactly the observation space of
-        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][].
+        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][]. In particular,
+        `target_gate` reports the next gate's 0-based ID and `target_gate_reverse` reports whether
+        that gate must be passed in reverse direction.
 
     Note:
         Each instance of this environment controls only one drone (specified by rank), but provides

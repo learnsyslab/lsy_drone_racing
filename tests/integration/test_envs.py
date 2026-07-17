@@ -211,7 +211,7 @@ def test_render():
 
     # Force terminal state
     data = env.unwrapped.data
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[...].set(-1))
+    env.unwrapped.data = data.replace(gate_progress=data.gate_progress.at[...].set(-1))
     env.step(env.action_space.sample())
     assert jp.all(env.unwrapped.data.disabled_drones), "drone not actually disabled"
     env.render()
@@ -249,12 +249,12 @@ def test_render_multi_drone():
     # `_warp_disabled_drones`, exercising the renderer with a mix of active and
     # warped drones.
     data = env.unwrapped.data
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[0, 0].set(-1))
+    env.unwrapped.data = data.replace(gate_progress=data.gate_progress.at[0, 0].set(-1))
     env.step(env.action_space.sample())
 
     # Verify drone 0 is disabled and the others are still active.
     disabled = env.unwrapped.data.disabled_drones
-    assert bool(disabled[0, 0]), "drone 0 should be disabled after target_gate=-1"
+    assert bool(disabled[0, 0]), "drone 0 should be disabled after gate_progress=-1"
     assert not bool(jp.all(disabled)), "only drone 0 should be disabled, not all drones"
 
     env.render()
@@ -264,7 +264,7 @@ def test_render_multi_drone():
     # has autoreset enabled) the world will be auto-reset before render is
     # called again.
     data = env.unwrapped.data
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[...].set(-1))
+    env.unwrapped.data = data.replace(gate_progress=data.gate_progress.at[...].set(-1))
     env.step(env.action_space.sample())
     env.render()
     env.close()

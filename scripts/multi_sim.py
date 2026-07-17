@@ -149,19 +149,29 @@ def simulate(
         for ctrl in controller_instances:
             ctrl.episode_callback()  # Update the controller internal state and models.
             ctrl.episode_reset()
-        log_episode_stats(obs, config, finish_times, controller_names)
+        log_episode_stats(
+            obs,
+            config,
+            finish_times,
+            controller_names,
+            np.asarray(env.unwrapped.data.gate_progress[0]),
+        )
 
     # Close the environment
     env.close()
 
 
 def log_episode_stats(
-    obs: dict, config: ConfigDict, finish_times: np.ndarray, controller_names: list[str]
+    obs: dict,
+    config: ConfigDict,
+    finish_times: np.ndarray,
+    controller_names: list[str],
+    race_progress: np.ndarray,
 ):
     """Log the statistics of a single episode."""
-    gates_passed = obs["target_gate"]
-    finished = gates_passed == -1
-    gates_passed = np.where(gates_passed == -1, len(config.env.track.gates), gates_passed)
+    n_gate_passes = len(config.env.track.get("gate_order", config.env.track.gates))
+    finished = race_progress == -1
+    gates_passed = np.where(finished, n_gate_passes, race_progress)
     time_strings = ["N/A" if np.isnan(t) else f"{t:.2f}" for t in finish_times]
     name_width = max(len("controller"), max(len(name) for name in controller_names))
     time_width = max(len("time [s]"), max(len(time_str) for time_str in time_strings))
