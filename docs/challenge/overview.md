@@ -16,8 +16,6 @@ The obstacles are designed as slender cylindrical poles with 0.03 meters in diam
 
 The goal of the project is to develop a controller that can navigate the drone through the track with the least possible time on a real Crazyflie drone. As previously mentioned, controllers have to be compatible with the predefined interface. Once you have designed a controller and verified its performance and safety in simulation, you can deploy it on the real hardware.
 
-For racing-specific observability, the environment observation exposes `n_gates_passed` as the number of configured gate-order entries already completed, `gate_sequence` as the full configured gate order in 0-based gate IDs, `gate_sequence_direction` as the signed pass direction for each entry (`1` for the positive passing direction, `-1` for the reverse direction), `target_gate` as the next physical gate ID, and `target_gate_reverse` as the signed pass direction for that next gate.
-
 !!! warning
     While the interfaces are the same and we take great care to ensure that the simulation faithfully reproduces the real-world behavior of the drones, running a controller on the real drone is significantly different from running it in simulation. Be aware that unexpected behavior might occur, depending on the actual drone and the used controller, and further extensive tuning and testing may be necessary.
 
