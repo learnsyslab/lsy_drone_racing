@@ -698,6 +698,9 @@ class RaceCoreEnv:
 
 def obs(data: EnvData) -> dict[str, Array]:
     """Return the observation of the environment."""
+    gate_sequence_shape = (*data.n_gates_passed.shape, data.gate_sequence.shape[0])
+    gate_sequence = jp.broadcast_to(data.gate_sequence, gate_sequence_shape)
+    gate_sequence_direction = jp.broadcast_to(data.gate_sequence_direction, gate_sequence_shape)
     mask = data.gates_visited[..., None]
     sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[:, None])
     sensor_gates_quat = jp.where(mask, data.gates_quat[:, None], data.nominal_gates_quat[:, None])
@@ -711,8 +714,8 @@ def obs(data: EnvData) -> dict[str, Array]:
         "vel": data.sim_data.states.vel,
         "ang_vel": data.sim_data.states.ang_vel,
         "n_gates_passed": data.n_gates_passed,
-        "gate_sequence": data.gate_sequence,
-        "gate_sequence_direction": data.gate_sequence_direction,
+        "gate_sequence": gate_sequence,
+        "gate_sequence_direction": gate_sequence_direction,
         "gates_pos": sensor_gates_pos,
         "gates_quat": sensor_gates_quat,
         "gates_visited": data.gates_visited,

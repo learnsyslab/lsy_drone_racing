@@ -22,8 +22,6 @@ from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 from lsy_drone_racing.utils import load_config, load_controller
 
 if TYPE_CHECKING:
-    from ml_collections import ConfigDict
-
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.multi_drone_race import MultiDroneRacingEnv
 

@@ -69,8 +69,6 @@ def test_obs_structure_and_initial_values():
         "n_gates_passed",
         "gate_sequence",
         "gate_sequence_direction",
-        "target_gate",
-        "target_gate_reverse",
         "gates_pos",
         "gates_quat",
         "gates_visited",
@@ -79,15 +77,13 @@ def test_obs_structure_and_initial_values():
     }
     assert set(obs.keys()) == expected_keys
     # Single-drone make() squeezes leading (world, drone) dims: pos is (3,), gates_pos is
-    # (n_gates, 3), target_gate is a 0-d scalar.
+    # (n_gates, 3).
     assert np.asarray(obs["pos"]).shape == (3,)
     assert np.asarray(obs["gates_pos"]).ndim == 2
     assert np.asarray(obs["gates_pos"]).shape[1] == 3
     assert int(np.asarray(obs["n_gates_passed"]).item()) == 0
     np.testing.assert_array_equal(np.asarray(obs["gate_sequence"]), np.array([0, 1, 2, 3]))
-    np.testing.assert_array_equal(np.asarray(obs["gate_sequence_direction"]), np.array([1, 1, 1, 1]))
-    assert int(np.asarray(obs["target_gate"]).item()) == 0
-    assert int(np.asarray(obs["target_gate_reverse"]).item()) == 1
+    np.testing.assert_array_equal(np.asarray(obs["gate_sequence_direction"]), np.ones(4))
     env.close()
 
 
@@ -284,7 +280,7 @@ def test_gate_pass_increments_n_gates_passed():
 
 @pytest.mark.unit
 def test_gate_order_initial_obs_mapping():
-    """Initial observations must expose the configured next gate ID and direction."""
+    """Initial observations must expose the configured gate sequence and directions."""
     config = load_config(CONFIG_PATH / "level0.toml")
     config.env.track.gate_order = [-2, 1]
     env = make_env(track=config.env.track)
@@ -292,8 +288,6 @@ def test_gate_order_initial_obs_mapping():
     assert int(np.asarray(env_obs["n_gates_passed"]).item()) == 0
     np.testing.assert_array_equal(np.asarray(env_obs["gate_sequence"]), np.array([1, 0]))
     np.testing.assert_array_equal(np.asarray(env_obs["gate_sequence_direction"]), np.array([-1, 1]))
-    assert int(np.asarray(env_obs["target_gate"]).item()) == 1
-    assert int(np.asarray(env_obs["target_gate_reverse"]).item()) == -1
     env.close()
 
 
@@ -312,7 +306,7 @@ def test_gate_not_passed_without_crossing():
 
 @pytest.mark.unit
 def test_repeated_gate_obs_mapping_after_pass():
-    """After passing a repeated gate, obs must still point to that gate with the next direction."""
+    """After passing a repeated gate, obs must keep the configured repeated sequence entry."""
     config = load_config(CONFIG_PATH / "level0.toml")
     config.env.track.gate_order = [1, -1]
     env = make_env(track=config.env.track)
@@ -334,8 +328,8 @@ def test_repeated_gate_obs_mapping_after_pass():
     new_data = _update_target_gates(env.unwrapped.data)
     mapped_obs = obs(new_data)
     assert int(np.asarray(mapped_obs["n_gates_passed"][0, 0])) == 1
-    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == 0
-    assert int(np.asarray(mapped_obs["target_gate_reverse"][0, 0])) == -1
+    assert int(np.asarray(mapped_obs["gate_sequence"][0, 0, 1])) == 0
+    assert int(np.asarray(mapped_obs["gate_sequence_direction"][0, 0, 1])) == -1
     env.close()
 
 
@@ -439,9 +433,7 @@ def test_gate_pass_at_last_gate_sets_n_gates_passed_to_sequence_length():
 
     # Pre-advance n_gates_passed to the last sequence entry so _update_target_gates checks it.
     last_idx = n_gate_passes - 1
-    env.unwrapped.data = data.replace(
-        n_gates_passed=data.n_gates_passed.at[0, 0].set(last_idx)
-    )
+    env.unwrapped.data = data.replace(n_gates_passed=data.n_gates_passed.at[0, 0].set(last_idx))
     data = env.unwrapped.data
 
     # Craft a forward crossing of the last gate.
@@ -462,8 +454,6 @@ def test_gate_pass_at_last_gate_sets_n_gates_passed_to_sequence_length():
     assert int(np.asarray(new_data.n_gates_passed[0, 0])) == n_gate_passes
     mapped_obs = obs(new_data)
     assert int(np.asarray(mapped_obs["n_gates_passed"][0, 0])) == n_gate_passes
-    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == -1
-    assert int(np.asarray(mapped_obs["target_gate_reverse"][0, 0])) == 1
     env.close()
 
 
@@ -492,8 +482,6 @@ def test_reverse_only_waypoint_can_finish_track():
     mapped_obs = obs(new_data)
     assert int(np.asarray(new_data.n_gates_passed[0, 0])) == 1
     assert int(np.asarray(mapped_obs["n_gates_passed"][0, 0])) == 1
-    assert int(np.asarray(mapped_obs["target_gate"][0, 0])) == -1
-    assert int(np.asarray(mapped_obs["target_gate_reverse"][0, 0])) == 1
     env.close()
 
 

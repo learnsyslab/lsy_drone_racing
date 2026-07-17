@@ -213,14 +213,17 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
+        gate_sequence_shape = (self.n_drones, self.gate_sequence.shape[0])
+        gate_sequence = np.broadcast_to(self.gate_sequence, gate_sequence_shape)
+        gate_sequence_direction = np.broadcast_to(self.gate_sequence_direction, gate_sequence_shape)
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
             "vel": drone_vel,
             "ang_vel": drone_ang_vel,
             "n_gates_passed": self.data.n_gates_passed,
-            "gate_sequence": self.gate_sequence,
-            "gate_sequence_direction": self.gate_sequence_direction,
+            "gate_sequence": gate_sequence,
+            "gate_sequence_direction": gate_sequence_direction,
             "gates_pos": gates_pos,
             "gates_quat": gates_quat,
             "gates_visited": self.data.gates_visited,
