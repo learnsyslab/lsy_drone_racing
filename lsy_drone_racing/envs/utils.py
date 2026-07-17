@@ -63,19 +63,22 @@ def load_gate_order(track: ConfigDict, n_gates: int) -> tuple[np.ndarray, np.nda
         n_gates: Number of physical gates in the track.
 
     Returns:
-        A tuple ``(gate_order_ids, gate_order_reverse)`` with 0-based gate IDs and reverse flags.
+        A tuple ``(gate_sequence, gate_sequence_direction)`` with 0-based gate IDs and signed pass
+        directions. ``1`` indicates the positive gate-frame crossing direction, ``-1`` the reverse
+        direction.
     """
     assert "gate_order" in track, "Track must contain gate_order field."
     gate_order = np.asarray(track["gate_order"], dtype=np.int32)
     assert gate_order.ndim == 1, "track.gate_order must be a 1D list of signed integers."
     assert gate_order.size > 0, "track.gate_order must be a non-empty list."
     assert not np.any(gate_order == 0), "track.gate_order must not contain 0. "
-    gate_ids = np.abs(gate_order) - 1
-    if np.any(gate_ids < 0) or np.any(gate_ids >= n_gates):
+    gate_sequence = np.abs(gate_order) - 1
+    if np.any(gate_sequence < 0) or np.any(gate_sequence >= n_gates):
         raise ValueError(
             f"track.gate_order must reference gate numbers in the interval [1, {n_gates})."
         )
-    return gate_ids, gate_order < 0
+    gate_sequence_direction = np.where(gate_order < 0, -1, 1).astype(np.int32)
+    return gate_sequence, gate_sequence_direction
 
 
 @jax.jit

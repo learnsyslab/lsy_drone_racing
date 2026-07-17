@@ -105,22 +105,23 @@ def simulate(
             i += 1
 
         controller.episode_callback()  # Update the controller internal state and models.
-        log_episode_stats(obs, info, config, curr_time)
+        log_episode_stats(obs, curr_time)
         controller.episode_reset()
-        ep_times.append(curr_time if obs["race_progress"] == -1 else None)
+        finished = obs["n_gates_passed"] == obs["gate_sequence"].shape[0]
+        ep_times.append(curr_time if finished else None)
 
     # Close the environment
     env.close()
     return ep_times
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
+def log_episode_stats(obs: dict, curr_time: float):
     """Log the statistics of a single episode."""
-    n_gate_passes = len(config.env.track["gate_order"])
-    gates_passed = n_gate_passes if obs["race_progress"] == -1 else obs["race_progress"]
-    finished = obs["race_progress"] == -1
+    finished = obs["n_gates_passed"] == obs["gate_sequence"].shape[0]
     logger.info(
-        f"Flight time (s): {curr_time}\nFinished: {finished}\nGates passed: {gates_passed}\n"
+        f"Flight time (s): {curr_time}\n"
+        + f"Finished: {finished}\n"
+        + f"Gates passed: {obs['n_gates_passed']}\n"
     )
 
 

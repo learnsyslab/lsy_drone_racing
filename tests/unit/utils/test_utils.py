@@ -73,6 +73,8 @@ def test_gate_pass():
 def test_load_gate_order():
     config = load_config(Path(__file__).parents[3] / "config/level0.toml")
     config.env.track.gate_order = [1, -2, 2, -1]
-    gate_ids, reverse = load_gate_order(config.env.track, len(config.env.track.gates))
-    np.testing.assert_array_equal(gate_ids, np.array([0, 1, 1, 0]))
-    np.testing.assert_array_equal(reverse, np.array([False, True, False, True]))
+    gate_sequence, gate_sequence_direction = load_gate_order(
+        config.env.track, len(config.env.track.gates)
+    )
+    np.testing.assert_array_equal(gate_sequence, np.array([0, 1, 1, 0]))
+    np.testing.assert_array_equal(gate_sequence_direction, np.array([1, -1, 1, -1]))

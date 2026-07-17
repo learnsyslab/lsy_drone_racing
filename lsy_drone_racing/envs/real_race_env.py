@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 class EnvData:
     """Struct holding the data of all auxiliary variables for the environment."""
 
-    race_progress: NDArray
+    n_gates_passed: NDArray
     gates_visited: NDArray
     obstacles_visited: NDArray
     last_drone_pos: NDArray[np.float32]
@@ -42,7 +42,7 @@ class EnvData:
     def create(cls, n_drones: int, n_gates: int, n_obstacles: int) -> EnvData:
         """Create an instance of the EnvData class."""
         return EnvData(
-            race_progress=np.zeros(n_drones, dtype=int),
+            n_gates_passed=np.zeros(n_drones, dtype=int),
             gates_visited=np.zeros((n_drones, n_gates), dtype=bool),
             obstacles_visited=np.zeros((n_drones, n_obstacles), dtype=bool),
             last_drone_pos=np.zeros((n_drones, 3), dtype=np.float32),
@@ -50,7 +50,7 @@ class EnvData:
 
     def reset(self, last_drone_pos: NDArray[np.float32]):
         """Reset the environment data."""
-        self.race_progress[...] = 0
+        self.n_gates_passed[...] = 0
         self.gates_visited[...] = False
         self.obstacles_visited[...] = False
         self.last_drone_pos[...] = last_drone_pos
@@ -94,8 +94,7 @@ class RealRaceCoreEnv:
         self.n_drones = len(drones)
         self.gates, self.obstacles, self.drones = load_track(track)
         self.n_gates = len(self.gates.pos)
-        self.gate_order_ids, self.gate_order_reverse = load_gate_order(track, self.n_gates)
-        self.n_gate_passes = len(self.gate_order_ids)
+        self.gate_sequence, self.gate_sequence_direction = load_gate_order(track, self.n_gates)
         self.n_obstacles = len(self.obstacles.pos)
         self.pos_limit_low = np.array(track.safety_limits["pos_limit_low"])
         self.pos_limit_high = np.array(track.safety_limits["pos_limit_high"])
@@ -176,8 +175,10 @@ class RealRaceCoreEnv:
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
 
-        gate_ids = self.gate_order_ids[self.data.race_progress]
-        gate_reverse = self.gate_order_reverse[self.data.race_progress]
+        n_gate_passes = self.gate_sequence.shape[0]
+        progress = np.clip(self.data.n_gates_passed, 0, n_gate_passes - 1)
+        gate_ids = self.gate_sequence[progress]
+        gate_reverse = self.gate_sequence_direction[progress] < 0
         gate_pos = self.gates.pos[gate_ids]
         gate_quat = self.gates.quat[gate_ids]
 
@@ -185,9 +186,8 @@ class RealRaceCoreEnv:
             passed = gate_passed(
                 drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, gate_reverse, (0.45, 0.45)
             )
-        active = self.data.race_progress >= 0
-        self.data.race_progress = np.where(active, self.data.race_progress + np.asarray(passed), -1)
-        self.data.race_progress[self.data.race_progress >= self.n_gate_passes] = -1
+        increment = np.asarray(passed, dtype=self.data.n_gates_passed.dtype)
+        self.data.n_gates_passed = np.minimum(self.data.n_gates_passed + increment, n_gate_passes)
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
         # Send vicon position updates to the drone at a fixed frequency irrespective of the env freq
@@ -213,18 +213,14 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
-        target_gate = self.gate_order_ids[self.data.race_progress]
-        target_gate = np.where(self.data.race_progress < 0, -1, target_gate)
-        target_gate_reverse = self.gate_order_reverse[self.data.race_progress]
-        target_gate_reverse = np.where(self.data.race_progress < 0, False, target_gate_reverse)
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
             "vel": drone_vel,
             "ang_vel": drone_ang_vel,
-            "race_progress": self.data.race_progress,
-            "target_gate": target_gate,
-            "target_gate_reverse": target_gate_reverse,
+            "n_gates_passed": self.data.n_gates_passed,
+            "gate_sequence": self.gate_sequence,
+            "gate_sequence_direction": self.gate_sequence_direction,
             "gates_pos": gates_pos,
             "gates_quat": gates_quat,
             "gates_visited": self.data.gates_visited,
@@ -244,11 +240,11 @@ class RealRaceCoreEnv:
         Returns:
             Reward for the current state.
         """
-        return -1.0 * (self.data.race_progress == -1)  # Implicit float conversion
+        return -1.0 * (self.data.n_gates_passed >= self.gate_sequence.shape[0])
 
     def terminated(self) -> NDArray:
         """Check if the episode is terminated."""
-        terminated = self.data.race_progress == -1
+        terminated = self.data.n_gates_passed >= self.gate_sequence.shape[0]
         terminated[self.rank] |= not self.drone.is_connected
         terminated |= np.any(
             (self.pos_limit_low > self.data.last_drone_pos)
