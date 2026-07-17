@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 
 import fire
 import gymnasium
+import numpy as np
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 
 from lsy_drone_racing.utils import load_config, load_controller
@@ -104,22 +105,20 @@ def simulate(
             i += 1
 
         controller.episode_callback()  # Update the controller internal state and models.
-        log_episode_stats(obs, info, config, curr_time, int(env.unwrapped.data.gate_progress[0, 0]))
+        log_episode_stats(obs, info, config, curr_time)
         controller.episode_reset()
-        ep_times.append(curr_time if obs["target_gate"] == -1 else None)
+        ep_times.append(curr_time if int(np.asarray(obs["race_progress"]).item()) == -1 else None)
 
     # Close the environment
     env.close()
     return ep_times
 
 
-def log_episode_stats(
-    obs: dict, info: dict, config: ConfigDict, curr_time: float, race_progress: int
-):
+def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
     """Log the statistics of a single episode."""
-    n_gate_passes = len(config.env.track.get("gate_order", config.env.track.gates))
-    gates_passed = n_gate_passes if race_progress == -1 else race_progress
-    finished = race_progress == -1
+    n_gate_passes = len(config.env.track["gate_order"])
+    gates_passed = n_gate_passes if obs["race_progress"] == -1 else obs["race_progress"]
+    finished = obs["race_progress"] == -1
     logger.info(
         f"Flight time (s): {curr_time}\nFinished: {finished}\nGates passed: {gates_passed}\n"
     )

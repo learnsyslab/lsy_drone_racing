@@ -120,7 +120,7 @@ def simulate(
 
             obs, reward, terminated, truncated, info = env.step(actions)
 
-            newly_finished = (obs["target_gate"] == -1) & np.isnan(finish_times)
+            newly_finished = (obs["race_progress"] == -1) & np.isnan(finish_times)
             finish_times[newly_finished] = curr_time
             # Update the controllers' internal state and models.
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):
@@ -149,29 +149,20 @@ def simulate(
         for ctrl in controller_instances:
             ctrl.episode_callback()  # Update the controller internal state and models.
             ctrl.episode_reset()
-        log_episode_stats(
-            obs,
-            config,
-            finish_times,
-            controller_names,
-            np.asarray(env.unwrapped.data.gate_progress[0]),
-        )
+        log_episode_stats(obs, config, finish_times, controller_names)
 
     # Close the environment
     env.close()
 
 
 def log_episode_stats(
-    obs: dict,
-    config: ConfigDict,
-    finish_times: np.ndarray,
-    controller_names: list[str],
-    race_progress: np.ndarray,
+    obs: dict, config: ConfigDict, finish_times: np.ndarray, controller_names: list[str]
 ):
     """Log the statistics of a single episode."""
-    n_gate_passes = len(config.env.track.get("gate_order", config.env.track.gates))
-    finished = race_progress == -1
-    gates_passed = np.where(finished, n_gate_passes, race_progress)
+    n_gate_passes = len(config.env.track["gate_order"])
+    gates_passed = n_gate_passes if obs["race_progress"] == -1 else obs["race_progress"]
+    finished = obs["race_progress"] == -1
+    gates_passed = np.where(finished, n_gate_passes, obs["race_progress"])
     time_strings = ["N/A" if np.isnan(t) else f"{t:.2f}" for t in finish_times]
     name_width = max(len("controller"), max(len(name) for name in controller_names))
     time_width = max(len("time [s]"), max(len(time_str) for time_str in time_strings))

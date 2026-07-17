@@ -74,7 +74,7 @@ class EnvData:
     episode.
 
     Attributes:
-        gate_progress: Current target waypoint index for each drone in each environment
+        race_progress: Current target waypoint index for each drone in each environment
         gates_visited: Boolean flags indicating which gates have been visited by each drone
         obstacles_visited: Boolean flags indicating which obstacles have been detected
         last_drone_pos: Previous positions of drones, used for gate passing detection
@@ -92,7 +92,7 @@ class EnvData:
     """
 
     # Dynamic variables
-    gate_progress: Array
+    race_progress: Array
     gates_visited: Array
     obstacles_visited: Array
     last_drone_pos: Array
@@ -150,7 +150,7 @@ class EnvData:
             jp.tile(nominal_obstacles_pos[None, ...], (n_envs, 1, 1)), device
         )
         return EnvData(
-            gate_progress=jp.zeros((n_envs, n_drones), dtype=int, device=device),
+            race_progress=jp.zeros((n_envs, n_drones), dtype=int, device=device),
             gates_visited=jp.zeros((n_envs, n_drones, n_gates), dtype=bool, device=device),
             obstacles_visited=jp.zeros((n_envs, n_drones, n_obstacles), dtype=bool, device=device),
             last_drone_pos=jp.zeros((n_envs, n_drones, 3), dtype=np.float32, device=device),
@@ -241,7 +241,7 @@ def build_action_space(control_mode: Literal["state", "attitude"], drone_model: 
     raise ValueError(f"Invalid control mode: {control_mode}")
 
 
-def build_observation_space(n_gates: int, n_obstacles: int) -> spaces.Dict:
+def build_observation_space(n_gates: int, n_obstacles: int, n_gate_passes: int) -> spaces.Dict:
     """Create the observation space for the environment.
 
     The observation space is a dictionary containing the drone state, gate information,
@@ -250,12 +250,14 @@ def build_observation_space(n_gates: int, n_obstacles: int) -> spaces.Dict:
     Args:
         n_gates: Number of gates in the environment.
         n_obstacles: Number of obstacles in the environment.
+        n_gate_passes: Number of entries in the configured gate order.
     """
     obs_spec = {
         "pos": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
         "quat": spaces.Box(low=-1, high=1, shape=(4,)),
         "vel": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
         "ang_vel": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
+        "race_progress": spaces.Discrete(n_gate_passes + 1, start=-1),
         "target_gate": spaces.Discrete(n_gates + 1, start=-1),
         "target_gate_reverse": spaces.Box(low=0, high=1, shape=(), dtype=bool),
         "gates_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(n_gates, 3)),
@@ -295,6 +297,8 @@ class RaceCoreEnv:
     * quat: Drone orientation as a quaternion (x, y, z, w)
     * vel: Drone linear velocity
     * ang_vel: Drone angular velocity
+    * race_progress: The current index in the configured gate order, or -1 if the track is
+      completed
     * gates_pos: Positions of the gates
     * gates_quat: Orientations of the gates
     * gates_visited: Flags indicating if the drone already was/ is in the sensor range of the
@@ -690,10 +694,10 @@ class RaceCoreEnv:
 
 def obs(data: EnvData) -> dict[str, Array]:
     """Return the observation of the environment."""
-    target_gate = data.gate_order_ids[data.gate_progress]
-    target_gate = jp.where(data.gate_progress < 0, -1, target_gate)
-    target_gate_reverse = data.gate_order_reverse[data.gate_progress]
-    target_gate_reverse = jp.where(data.gate_progress < 0, False, target_gate_reverse)
+    target_gate = data.gate_order_ids[data.race_progress]
+    target_gate = jp.where(data.race_progress < 0, -1, target_gate)
+    target_gate_reverse = data.gate_order_reverse[data.race_progress]
+    target_gate_reverse = jp.where(data.race_progress < 0, False, target_gate_reverse)
     mask = data.gates_visited[..., None]
     sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[:, None])
     sensor_gates_quat = jp.where(mask, data.gates_quat[:, None], data.nominal_gates_quat[:, None])
@@ -706,6 +710,7 @@ def obs(data: EnvData) -> dict[str, Array]:
         "quat": data.sim_data.states.quat,
         "vel": data.sim_data.states.vel,
         "ang_vel": data.sim_data.states.ang_vel,
+        "race_progress": data.race_progress,
         "target_gate": target_gate,
         "target_gate_reverse": target_gate_reverse,
         "gates_pos": sensor_gates_pos,
@@ -727,7 +732,7 @@ def reward(data: EnvData) -> Array:
     Returns:
         Reward for the current state.
     """
-    return -1.0 * (data.gate_progress == -1)  # Implicit float conversion
+    return -1.0 * (data.race_progress == -1)  # Implicit float conversion
 
 
 def terminated(data: EnvData) -> Array:
@@ -746,7 +751,7 @@ def _reset_env_data(data: EnvData, mask: Array | None = None) -> EnvData:
     """Reset auxiliary variables of the environment data."""
     drone_pos = data.sim_data.states.pos
     mask = jp.ones(data.steps.shape, dtype=bool) if mask is None else mask
-    gate_progress = jp.where(mask[..., None], 0, data.gate_progress)
+    race_progress = jp.where(mask[..., None], 0, data.race_progress)
     last_drone_pos = jp.where(mask[..., None, None], drone_pos, data.last_drone_pos)
     disabled_drones = jp.where(mask[..., None], False, data.disabled_drones)
     steps = jp.where(mask, 0, data.steps)
@@ -760,7 +765,7 @@ def _reset_env_data(data: EnvData, mask: Array | None = None) -> EnvData:
     obstacles_visited = jp.linalg.norm(dpos, axis=-1) < data.sensor_range
     obstacles_visited = jp.where(mask[..., None, None], obstacles_visited, data.obstacles_visited)
     return data.replace(
-        gate_progress=gate_progress,
+        race_progress=race_progress,
         last_drone_pos=last_drone_pos,
         disabled_drones=disabled_drones,
         gates_visited=gates_visited,
@@ -791,15 +796,15 @@ def _update_target_gates(data: EnvData) -> EnvData:
     n_gate_passes = data.gate_order_ids.shape[0]
     gates_pos, gates_quat = data.gates_pos, data.gates_quat
     drone_pos = data.sim_data.states.pos
-    gate_ids = data.gate_order_ids[data.gate_progress]
-    reverse = data.gate_order_reverse[data.gate_progress]
+    gate_ids = data.gate_order_ids[data.race_progress]
+    reverse = data.gate_order_reverse[data.race_progress]
     gate_pos = gates_pos[jp.arange(gates_pos.shape[0])[:, None], gate_ids]
     gate_quat = gates_quat[jp.arange(gates_quat.shape[0])[:, None], gate_ids]
     passed = gate_passed(drone_pos, data.last_drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
     # Advance the gate-order progress by one if drones have passed the current waypoint.
-    gate_progress = data.gate_progress + passed * ~data.disabled_drones
-    gate_progress = jp.where(gate_progress >= n_gate_passes, -1, gate_progress)
-    return data.replace(gate_progress=gate_progress, last_drone_pos=data.sim_data.states.pos)
+    race_progress = data.race_progress + passed * ~data.disabled_drones
+    race_progress = jp.where(race_progress >= n_gate_passes, -1, race_progress)
+    return data.replace(race_progress=race_progress, last_drone_pos=data.sim_data.states.pos)
 
 
 def _mark_drones_for_reset(data: EnvData) -> EnvData:
@@ -848,7 +853,7 @@ def _disabled_drones(pos: Array, contacts: Array, data: EnvData) -> Array:
     not_in_platform |= jp.any(pos[..., :2] > data.takeoff_pos[..., :2] + 0.02, axis=-1)
     disabled = disabled | jp.any(pos < data.pos_limit_low, axis=-1) & not_in_platform
     disabled = disabled | jp.any(pos > data.pos_limit_high, axis=-1)
-    disabled = disabled | (data.gate_progress == -1)
+    disabled = disabled | (data.race_progress == -1)
     contacts = jp.any(contacts[:, :, None] & data.contact_masks, axis=-1)
     disabled = disabled | contacts
     return disabled
