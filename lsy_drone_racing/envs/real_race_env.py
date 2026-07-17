@@ -213,7 +213,10 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
-        target_gate, target_gate_reverse = self._target_gate_obs()
+        target_gate = self.gate_order_ids[self.data.race_progress]
+        target_gate = np.where(self.data.race_progress < 0, -1, target_gate)
+        target_gate_reverse = self.gate_order_reverse[self.data.race_progress]
+        target_gate_reverse = np.where(self.data.race_progress < 0, False, target_gate_reverse)
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
@@ -261,15 +264,6 @@ class RealRaceCoreEnv:
     def info(self) -> dict:
         """Return an info dictionary containing additional information about the environment."""
         return {}
-
-    def _target_gate_obs(self) -> tuple[NDArray, NDArray]:
-        """Map internal waypoint progress to public observation fields."""
-        progress = np.where(self.data.race_progress < 0, 0, self.data.race_progress)
-        target_gate = self.gate_order_ids[progress]
-        target_gate = np.where(self.data.race_progress < 0, -1, target_gate)
-        target_gate_reverse = self.gate_order_reverse[progress]
-        target_gate_reverse = np.where(self.data.race_progress < 0, False, target_gate_reverse)
-        return target_gate, target_gate_reverse
 
     def _update_track_poses(self):
         """Update the track poses from the motion capture system."""

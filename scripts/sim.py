@@ -107,7 +107,7 @@ def simulate(
         controller.episode_callback()  # Update the controller internal state and models.
         log_episode_stats(obs, info, config, curr_time)
         controller.episode_reset()
-        ep_times.append(curr_time if int(np.asarray(obs["race_progress"]).item()) == -1 else None)
+        ep_times.append(curr_time if obs["race_progress"] == -1 else None)
 
     # Close the environment
     env.close()
