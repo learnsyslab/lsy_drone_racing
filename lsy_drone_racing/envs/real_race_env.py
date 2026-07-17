@@ -379,9 +379,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         Observation space:
             The observation space is a dictionary containing the state of all drones in the race.
             It mimics exactly the observation space of
-            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][]. In particular, `target_gate`
-            reports the next gate's 0-based ID and `target_gate_reverse` reports whether that gate
-            must be passed in reverse direction.
+            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][].
 
         Note:
             rclpy must be initialized before creating this environment.
@@ -457,9 +455,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
     Observation space:
         The observation space is a dictionary containing the state of all drones in the race.
         It mimics exactly the observation space of
-        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][]. In particular,
-        `target_gate` reports the next gate's 0-based ID and `target_gate_reverse` reports whether
-        that gate must be passed in reverse direction.
+        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][].
 
     Note:
         Each instance of this environment controls only one drone (specified by rank), but provides
