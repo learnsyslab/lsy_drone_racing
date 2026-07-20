@@ -71,13 +71,12 @@ def load_gate_order(track: ConfigDict, n_gates: int) -> tuple[np.ndarray, np.nda
     gate_order = np.asarray(track["gate_order"], dtype=np.int32)
     assert gate_order.ndim == 1, "track.gate_order must be a 1D list of signed integers."
     assert gate_order.size > 0, "track.gate_order must be a non-empty list."
-    assert not np.any(gate_order == 0), "track.gate_order must not contain 0. "
+    assert not np.any(gate_order == 0), "track.gate_order must not contain 0."
+    assert not np.any(np.abs(gate_order) > n_gates), (
+        "track.gate_order must not contain gate indices greater than the number of gates."
+    )
     gate_sequence = np.abs(gate_order) - 1
-    if np.any(gate_sequence < 0) or np.any(gate_sequence >= n_gates):
-        raise ValueError(
-            f"track.gate_order must reference gate numbers in the interval [1, {n_gates})."
-        )
-    gate_sequence_direction = np.where(gate_order < 0, -1, 1).astype(np.int32)
+    gate_sequence_direction = np.sign(gate_order)
     return gate_sequence, gate_sequence_direction
 
 
@@ -119,11 +118,9 @@ def gate_passed(
     pos_local = gate_rot.apply(drone_pos - gate_pos, inverse=True)
     # Check the plane intersection. If passed, calculate the point of the intersection and check if
     # it is within the gate box.
-    passed_plane = jp.where(
-        reverse,
-        (last_pos_local[0] > 0) & (pos_local[0] < 0),
-        (last_pos_local[0] < 0) & (pos_local[0] > 0),
-    )
+    passed_plane_fwd = (last_pos_local[0] < 0) & (pos_local[0] > 0)
+    passed_plane_rev = (last_pos_local[0] > 0) & (pos_local[0] < 0)
+    passed_plane = jp.where(reverse, passed_plane_rev, passed_plane_fwd)
     alpha = -last_pos_local[0] / (pos_local[0] - last_pos_local[0])
     y_intersect = alpha * (pos_local[1]) + (1 - alpha) * last_pos_local[1]
     z_intersect = alpha * (pos_local[2]) + (1 - alpha) * last_pos_local[2]

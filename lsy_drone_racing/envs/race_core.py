@@ -795,19 +795,16 @@ def _update_visited_objects(data: EnvData) -> EnvData:
 
 
 def _update_target_gates(data: EnvData) -> EnvData:
-    """Update the waypoint progress based on the current gate-order entry."""
-    n_gate_passes = data.gate_sequence.shape[0]
+    """Update the number of passed gates based on the current target gate and the gate sequence."""
     gates_pos, gates_quat = data.gates_pos, data.gates_quat
     drone_pos = data.sim_data.states.pos
-    progress = jp.clip(data.n_gates_passed, 0, n_gate_passes - 1)
-    gate_ids = data.gate_sequence[progress]
-    reverse = data.gate_sequence_direction[progress] < 0
+    gate_ids = data.gate_sequence[data.n_gates_passed]
+    reverse = data.gate_sequence_direction[data.n_gates_passed] < 0
     gate_pos = gates_pos[jp.arange(gates_pos.shape[0])[:, None], gate_ids]
     gate_quat = gates_quat[jp.arange(gates_quat.shape[0])[:, None], gate_ids]
     passed = gate_passed(drone_pos, data.last_drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
     # Advance the gate-order progress by one if drones have passed the current waypoint.
-    increment = (passed & ~data.disabled_drones).astype(data.n_gates_passed.dtype)
-    n_gates_passed = jp.minimum(data.n_gates_passed + increment, n_gate_passes)
+    n_gates_passed = data.n_gates_passed + (passed & ~data.disabled_drones)
     return data.replace(n_gates_passed=n_gates_passed, last_drone_pos=data.sim_data.states.pos)
 
 

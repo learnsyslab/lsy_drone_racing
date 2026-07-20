@@ -117,8 +117,8 @@ def log_episode_stats(obs: dict, curr_time: float):
     finished = obs["n_gates_passed"] == obs["gate_sequence"].shape[0]
     logger.info(
         f"Flight time (s): {curr_time}\n"
-        + f"Finished: {finished}\n"
-        + f"Gates passed: {obs['n_gates_passed']}\n"
+        f"Finished: {finished}\n"
+        f"Gates passed: {obs['n_gates_passed']}\n"
     )
 
 

@@ -118,9 +118,8 @@ def simulate(
 
             obs, reward, terminated, truncated, info = env.step(actions)
 
-            newly_finished = (obs["n_gates_passed"] == obs["gate_sequence"].shape[-1]) & np.isnan(
-                finish_times
-            )
+            track_len = obs["gate_sequence"].shape[-1]
+            newly_finished = (obs["n_gates_passed"] == track_len) & np.isnan(finish_times)
             finish_times[newly_finished] = curr_time
             # Update the controllers' internal state and models.
             for rank, (ctrl, ctrl_info) in enumerate(zip(controller_instances, ranked_infos)):

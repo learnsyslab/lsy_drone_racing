@@ -1,5 +1,7 @@
 import os
 
+os.environ["SCIPY_ARRAY_API"] = "1"
+
 import jax
 import pytest
 

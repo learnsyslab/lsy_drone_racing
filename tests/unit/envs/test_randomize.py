@@ -1,9 +1,5 @@
 """Integration test: level3 produces collision-free tracks through the real reset pipeline."""
 
-import os
-
-os.environ["SCIPY_ARRAY_API"] = "1"
-
 from pathlib import Path
 
 import gymnasium

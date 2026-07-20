@@ -175,10 +175,8 @@ class RealRaceCoreEnv:
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
 
-        n_gate_passes = self.gate_sequence.shape[0]
-        progress = np.clip(self.data.n_gates_passed, 0, n_gate_passes - 1)
-        gate_ids = self.gate_sequence[progress]
-        gate_reverse = self.gate_sequence_direction[progress] < 0
+        gate_ids = self.gate_sequence[self.data.n_gates_passed]
+        gate_reverse = self.gate_sequence_direction[self.data.n_gates_passed] < 0
         gate_pos = self.gates.pos[gate_ids]
         gate_quat = self.gates.quat[gate_ids]
 
@@ -186,8 +184,7 @@ class RealRaceCoreEnv:
             passed = gate_passed(
                 drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, gate_reverse, (0.45, 0.45)
             )
-        increment = np.asarray(passed, dtype=self.data.n_gates_passed.dtype)
-        self.data.n_gates_passed = np.minimum(self.data.n_gates_passed + increment, n_gate_passes)
+        self.data.n_gates_passed = self.data.n_gates_passed + passed
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
         # Send vicon position updates to the drone at a fixed frequency irrespective of the env freq

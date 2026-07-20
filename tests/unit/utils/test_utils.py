@@ -1,7 +1,4 @@
-import os
 from pathlib import Path
-
-os.environ["SCIPY_ARRAY_API"] = "1"
 
 import numpy as np
 import pytest
@@ -78,3 +75,15 @@ def test_load_gate_order():
     )
     np.testing.assert_array_equal(gate_sequence, np.array([0, 1, 1, 0]))
     np.testing.assert_array_equal(gate_sequence_direction, np.array([1, -1, 1, -1]))
+
+
+@pytest.mark.unit
+def test_load_gate_correctness():
+    config = load_config(Path(__file__).parents[3] / "config/level0.toml")
+    config.env.track.gate_order = [0]  # 0 is not allowed, since the sign is ambiguous
+    with pytest.raises(AssertionError):
+        _, _ = load_gate_order(config.env.track, len(config.env.track.gates))
+
+    config.env.track.gate_order = [10]  # 10 is out of bounds
+    with pytest.raises(AssertionError):
+        _, _ = load_gate_order(config.env.track, len(config.env.track.gates))
