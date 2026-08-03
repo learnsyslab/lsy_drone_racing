@@ -5,8 +5,8 @@ via Zenoh. Run one instance per drone, specifying its rank.
 
 Usage:
 
-    python deploy_client.py --config multi_level2.toml --drone_rank 0
-    python deploy_client.py --config multi_level2.toml --drone_rank 1
+    python scripts/multi_deploy_client.py --config multi_level2.toml --drone_rank 0
+    python scripts/multi_deploy_client.py --config multi_level2.toml --drone_rank 1
 
 """
 
@@ -58,7 +58,7 @@ def main(
     )
     try:
         obs, info = env.reset(options=config_obj.deploy)
-
+        
         control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
         controller_cls = load_controller(control_path / config_obj.controller[drone_rank]["file"])
         controller = controller_cls(obs, info, extract_config_for_rank(config_obj, drone_rank))
@@ -73,6 +73,7 @@ def main(
 
         while rclpy.ok():
             t_loop = time.time()
+            obs, info = env.unwrapped.obs(), env.unwrapped.info()
             action = controller.compute_control(obs, info)
             obs, reward, terminated, truncated, info = env.step(action)
             controller_finished = controller.step_callback(
@@ -97,9 +98,10 @@ def main(
                 )
 
         ep_time = time.time() - start_time
-        finished = obs["target_gate"][drone_rank] == -1
+        finished = bool(info["finished_track"])
         logger.info(
-            f"Client {drone_rank}: Episode completed in {ep_time:.3f}s (finished={finished})"
+            f"Client {drone_rank}: Episode completed in {ep_time:.3f}s "
+            f"(finished={finished}, target_gate={info['target_gate']})"
         )
     except KeyboardInterrupt:
         logger.info(f"Client {drone_rank}: Interrupted by user")

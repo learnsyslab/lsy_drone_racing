@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import jax
 import numpy as np
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+from drone_models.core import load_params
+from drone_models.transform import force2pwm
 from drone_racing_msgs.msg import RealClientAction, RealHostState  # type: ignore[import-untyped]
 from drone_racing_msgs.srv import RealCalibrateClock  # type: ignore[import-untyped]
 from gymnasium import Env
@@ -81,6 +83,9 @@ class RealMultiDroneRaceEnvClient(Env):
         self.control_mode = control_mode
         self.drone_names = [f"cf{drone['id']}" for drone in drones]
         self.drone_name = self.drone_names[rank]
+        self.drone_parameters: dict = load_params(
+            physics="first_principles", drone_model=drones[rank]["drone_model"]
+        )
 
         self.gates, self.obstacles, self.drones_track = load_track(track)
         self.n_gates = len(self.gates.pos)
@@ -217,7 +222,12 @@ class RealMultiDroneRaceEnvClient(Env):
             terminated = True
 
         if self.control_mode == "attitude" and self._ros_connector:
-            self._ros_connector.publish_cmd(action)
+            pwm = force2pwm(
+                action[3], self.drone_parameters["thrust_max"] * 4, self.drone_parameters["pwm_max"]
+            )
+            pwm = np.clip(pwm, self.drone_parameters["pwm_min"], self.drone_parameters["pwm_max"])
+            command = (*np.rad2deg(action[:3]), int(pwm))
+            self._ros_connector.publish_cmd(command)
 
         self._send_action_update(action, terminated)
 
@@ -248,15 +258,17 @@ class RealMultiDroneRaceEnvClient(Env):
 
     def info(self) -> dict:
         """Return the info dictionary."""
-        return {"rank": self.rank}
+        target_gate = int(self.data.target_gate[self.rank])
+        return {"rank": self.rank, "target_gate": target_gate, "finished_track": target_gate == -1}
 
     def close(self):
         """Send a final stop message and close all ROS connections."""
         logger.info("Closing environment...")
         if self._client_action_pub:
-            self._send_action_update(
-                np.zeros(4 if self.control_mode == "attitude" else 13), stopped=True
-            )
+            stop_action = np.zeros(4 if self.control_mode == "attitude" else 13)
+            for _ in range(5):
+                self._send_action_update(stop_action, stopped=True)
+                time.sleep(0.05)
         if self._comm:
             self._comm.close()
         if self._ros_connector:
