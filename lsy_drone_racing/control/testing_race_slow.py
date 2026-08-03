@@ -6,6 +6,7 @@ The rank index is used to select the state of the current drone.
 
 from __future__ import annotations  # Python 3.10 type hints
 
+import time
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,7 +15,7 @@ from scipy.interpolate import CubicSpline
 from lsy_drone_racing.control.attitude_controller import (
     AttitudeController as SingleAttitudeController,
 )
-import time 
+
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
