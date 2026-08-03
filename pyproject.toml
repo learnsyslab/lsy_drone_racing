@@ -122,21 +122,6 @@ cmd = "ros2 run rmw_zenoh_cpp rmw_zenohd"
 description = "Run the Zenoh router on the host machine"
 
 ## feature [deploy]
-[tool.pixi.feature.deploy.tasks.mocap]
-cmd = "ros2 launch motion_capture_tracking launch.py"
-
-[tool.pixi.feature.deploy.tasks.estimator]
-cmd = [
-    "python",
-    "-m",
-    "drone_estimators.ros_nodes.ros2_node",
-    "--drone_name",
-    "{{drone_name}}",
-    "--legacy"
-]
-args = [{ "arg" = "drone_name", "default" = "cf52" }]
-
-## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
 mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
 estimator = { cmd = "python -m drone_estimators.ros_nodes.ros2_node --drone_name {{ drone_name }}", args = [
