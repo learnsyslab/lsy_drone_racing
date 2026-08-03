@@ -164,18 +164,20 @@ class CrazyflieWorker:
             t_start = time.time()
 
             with self.action_lock:
-                if self.last_msg and (t_start - self.last_msg.timestamp) > 10 * dt:
+                controller_stopped = bool(self.last_msg and self.last_msg.controller_stopped)
+                if self.last_msg and not controller_stopped and (
+                    t_start - self.last_msg.timestamp
+                ) > 10 * dt:
                     self.logger.error(
                         f"No command received for 10 * {dt:.2f}s, handover control to host..."
                     )
                     break
-                if self.last_msg and self.last_msg.controller_stopped:
-                    self.logger.info(
-                        "Received stop signal from client, waiting for return height..."
-                    )
-                    self._return_to_start()
-                    break
                 action = list(self.last_msg.action) if self.last_msg else None
+
+            if controller_stopped:
+                self.logger.info("Received stop signal from client, waiting for return height...")
+                self._return_to_start()
+                break
 
             if action is not None:
                 action_array = (
@@ -659,14 +661,14 @@ class CrazyflieRealRaceHost:
 
         while True:
             elapsed_time = time.time() - self._start_time
-            finished = all(self._clients_stopped.values())
+            all_stopped = all(self._clients_stopped.values())
             self._publish_host_state(
                 host_ready=True,
                 race_started=True,
-                race_finished=finished,
+                race_finished=all_stopped,
                 elapsed_time=elapsed_time,
             )
-            if finished:
+            if all_stopped:
                 logger.info("All clients stopped")
                 break
             time.sleep(1.0 / race_update_freq)
