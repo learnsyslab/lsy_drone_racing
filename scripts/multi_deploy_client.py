@@ -58,7 +58,7 @@ def main(
     )
     try:
         obs, info = env.reset(options=config_obj.deploy)
-        
+
         control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
         controller_cls = load_controller(control_path / config_obj.controller[drone_rank]["file"])
         controller = controller_cls(obs, info, extract_config_for_rank(config_obj, drone_rank))

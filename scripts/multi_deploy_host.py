@@ -5,7 +5,7 @@ Zenoh, and supervises the race until all clients finish.
 
 Usage:
 
-    python deploy_host.py --config multi_level2.toml
+    python scripts/multi_deploy_host.py --config multi_level2.toml
 
 """
 

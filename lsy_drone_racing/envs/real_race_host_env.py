@@ -165,9 +165,11 @@ class CrazyflieWorker:
 
             with self.action_lock:
                 controller_stopped = bool(self.last_msg and self.last_msg.controller_stopped)
-                if self.last_msg and not controller_stopped and (
-                    t_start - self.last_msg.timestamp
-                ) > 10 * dt:
+                if (
+                    self.last_msg
+                    and not controller_stopped
+                    and (t_start - self.last_msg.timestamp) > 10 * dt
+                ):
                     self.logger.error(
                         f"No command received for 10 * {dt:.2f}s, handover control to host..."
                     )
@@ -465,9 +467,7 @@ class CrazyflieRealRaceHost:
         logger.debug(f"Spawning processes for {self._num_drones} Crazyflie drones...")
         self._processes = []
         self._return_to_start_events = [self._mp_ctx.Event() for _ in range(self._num_drones)]
-        self._return_height_ready_events = [
-            self._mp_ctx.Event() for _ in range(self._num_drones)
-        ]
+        self._return_height_ready_events = [self._mp_ctx.Event() for _ in range(self._num_drones)]
         self._assigned_return_heights = self._mp_ctx.Array(
             "d", [float("nan")] * self._num_drones, lock=True
         )
