@@ -49,7 +49,7 @@ from lsy_drone_racing.envs.randomize import (
     randomize_gate_rpy_fn,
     randomize_obstacle_pos_fn,
 )
-from lsy_drone_racing.envs.utils import gate_passed, load_track
+from lsy_drone_racing.envs.utils import gate_passed, load_gate_order, load_track
 
 if TYPE_CHECKING:
     from crazyflow.sim.data import SimData
@@ -74,7 +74,8 @@ class EnvData:
     episode.
 
     Attributes:
-        target_gate: Current target gate index for each drone in each environment
+        n_gates_passed: Number of configured gate-order entries already passed by each drone in
+            each environment
         gates_visited: Boolean flags indicating which gates have been visited by each drone
         obstacles_visited: Boolean flags indicating which obstacles have been detected
         last_drone_pos: Previous positions of drones, used for gate passing detection
@@ -87,10 +88,13 @@ class EnvData:
         obstacle_mj_ids: MuJoCo IDs for the obstacles
         max_episode_steps: Maximum number of steps per episode
         sensor_range: Range at which drones can detect gates and obstacles
+        gate_sequence: 0-based gate IDs describing the configured gate order
+        gate_sequence_direction: Signed passing directions for each gate-order entry. ``1``
+            indicates the positive passing direction, ``-1`` the reverse direction.
     """
 
     # Dynamic variables
-    target_gate: Array
+    n_gates_passed: Array
     gates_visited: Array
     obstacles_visited: Array
     last_drone_pos: Array
@@ -107,6 +111,8 @@ class EnvData:
     nominal_gates_pos: Array
     nominal_gates_quat: Array
     nominal_obstacles_pos: Array
+    gate_sequence: Array
+    gate_sequence_direction: Array
     # sim_data is stored in the env data to allow passing a single tree on which we can operate
     sim_data: SimData
     # Static variables
@@ -128,6 +134,8 @@ class EnvData:
         nominal_gates_pos: Array,
         nominal_gates_quat: Array,
         nominal_obstacles_pos: Array,
+        gate_sequence: Array,
+        gate_sequence_direction: Array,
         sim_data: SimData,
         device: Device,
     ) -> EnvData:
@@ -144,7 +152,7 @@ class EnvData:
             jp.tile(nominal_obstacles_pos[None, ...], (n_envs, 1, 1)), device
         )
         return EnvData(
-            target_gate=jp.zeros((n_envs, n_drones), dtype=int, device=device),
+            n_gates_passed=jp.zeros((n_envs, n_drones), dtype=int, device=device),
             gates_visited=jp.zeros((n_envs, n_drones, n_gates), dtype=bool, device=device),
             obstacles_visited=jp.zeros((n_envs, n_drones, n_obstacles), dtype=bool, device=device),
             last_drone_pos=jp.zeros((n_envs, n_drones, 3), dtype=np.float32, device=device),
@@ -162,6 +170,8 @@ class EnvData:
             nominal_gates_pos=tiled_gates_pos,
             nominal_gates_quat=tiled_gates_quat,
             nominal_obstacles_pos=tiled_obstacles_pos,
+            gate_sequence=jp.array(gate_sequence, dtype=int, device=device),
+            gate_sequence_direction=jp.array(gate_sequence_direction, dtype=int, device=device),
             sim_data=sim_data,
             sensor_range=jp.array([sensor_range], dtype=jp.float32, device=device),
         )
@@ -233,7 +243,7 @@ def build_action_space(control_mode: Literal["state", "attitude"], drone_model: 
     raise ValueError(f"Invalid control mode: {control_mode}")
 
 
-def build_observation_space(n_gates: int, n_obstacles: int) -> spaces.Dict:
+def build_observation_space(n_gates: int, n_obstacles: int, n_gate_passes: int) -> spaces.Dict:
     """Create the observation space for the environment.
 
     The observation space is a dictionary containing the drone state, gate information,
@@ -242,13 +252,18 @@ def build_observation_space(n_gates: int, n_obstacles: int) -> spaces.Dict:
     Args:
         n_gates: Number of gates in the environment.
         n_obstacles: Number of obstacles in the environment.
+        n_gate_passes: Number of entries in the configured gate order.
     """
     obs_spec = {
         "pos": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
         "quat": spaces.Box(low=-1, high=1, shape=(4,)),
         "vel": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
         "ang_vel": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
-        "target_gate": spaces.Discrete(n_gates, start=-1),
+        "n_gates_passed": spaces.Discrete(n_gate_passes + 1, start=0),
+        "gate_sequence": spaces.MultiDiscrete(np.full(n_gate_passes, n_gates, dtype=np.int64)),
+        "gate_sequence_direction": spaces.Box(
+            low=-1, high=1, shape=(n_gate_passes,), dtype=np.int32
+        ),
         "gates_pos": spaces.Box(low=-np.inf, high=np.inf, shape=(n_gates, 3)),
         "gates_quat": spaces.Box(low=-1, high=1, shape=(n_gates, 4)),
         "gates_visited": spaces.Box(low=0, high=1, shape=(n_gates,), dtype=bool),
@@ -286,6 +301,11 @@ class RaceCoreEnv:
     * quat: Drone orientation as a quaternion (x, y, z, w)
     * vel: Drone linear velocity
     * ang_vel: Drone angular velocity
+    * n_gates_passed: The number of entries in the configured gate order that have already been
+      passed
+    * gate_sequence: The configured gate order expressed as 0-based gate IDs
+    * gate_sequence_direction: Signed passing direction for each gate-sequence entry. `1`
+      indicates the positive passing direction, `-1` the reverse direction
     * gates_pos: Positions of the gates
     * gates_quat: Orientations of the gates
     * gates_visited: Flags indicating if the drone already was/ is in the sensor range of the
@@ -293,7 +313,6 @@ class RaceCoreEnv:
     * obstacles_pos: Positions of the obstacles
     * obstacles_visited: Flags indicating if the drone already was/ is in the sensor range of the
       obstacles and the true position is known
-    * target_gate: The current target gate index
 
     The action space consists of a desired full-state command
     [x, y, z, vx, vy, vz, ax, ay, az, yaw, rrate, prate, yrate] that is tracked by the drone's
@@ -372,6 +391,7 @@ class RaceCoreEnv:
         self.track = track
         gates, obstacles, drones = load_track(track)
         n_gates, n_obstacles = len(track.gates), len(track.obstacles)
+        gate_sequence, gate_sequence_direction = load_gate_order(track, n_gates)
         contact_masks = _load_contact_masks(self.sim)
         specs = {} if disturbances is None else disturbances
         disturbances = {mode: rng_spec2fn(spec) for mode, spec in specs.items()}
@@ -400,6 +420,8 @@ class RaceCoreEnv:
             nominal_gates_pos=gates.nominal_pos,
             nominal_gates_quat=gates.nominal_quat,
             nominal_obstacles_pos=obstacles.nominal_pos,
+            gate_sequence=gate_sequence,
+            gate_sequence_direction=gate_sequence_direction,
             sim_data=self.sim.data,
             device=self.settings.device,
         )
@@ -676,6 +698,9 @@ class RaceCoreEnv:
 
 def obs(data: EnvData) -> dict[str, Array]:
     """Return the observation of the environment."""
+    gate_sequence_shape = (*data.n_gates_passed.shape, data.gate_sequence.shape[0])
+    gate_sequence = jp.broadcast_to(data.gate_sequence, gate_sequence_shape)
+    gate_sequence_direction = jp.broadcast_to(data.gate_sequence_direction, gate_sequence_shape)
     mask = data.gates_visited[..., None]
     sensor_gates_pos = jp.where(mask, data.gates_pos[:, None], data.nominal_gates_pos[:, None])
     sensor_gates_quat = jp.where(mask, data.gates_quat[:, None], data.nominal_gates_quat[:, None])
@@ -688,7 +713,9 @@ def obs(data: EnvData) -> dict[str, Array]:
         "quat": data.sim_data.states.quat,
         "vel": data.sim_data.states.vel,
         "ang_vel": data.sim_data.states.ang_vel,
-        "target_gate": data.target_gate,
+        "n_gates_passed": data.n_gates_passed,
+        "gate_sequence": gate_sequence,
+        "gate_sequence_direction": gate_sequence_direction,
         "gates_pos": sensor_gates_pos,
         "gates_quat": sensor_gates_quat,
         "gates_visited": data.gates_visited,
@@ -708,7 +735,7 @@ def reward(data: EnvData) -> Array:
     Returns:
         Reward for the current state.
     """
-    return -1.0 * (data.target_gate == -1)  # Implicit float conversion
+    return -1.0 * (data.n_gates_passed >= data.gate_sequence.shape[0])  # Implicit float conversion
 
 
 def terminated(data: EnvData) -> Array:
@@ -727,7 +754,7 @@ def _reset_env_data(data: EnvData, mask: Array | None = None) -> EnvData:
     """Reset auxiliary variables of the environment data."""
     drone_pos = data.sim_data.states.pos
     mask = jp.ones(data.steps.shape, dtype=bool) if mask is None else mask
-    target_gate = jp.where(mask[..., None], 0, data.target_gate)
+    n_gates_passed = jp.where(mask[..., None], 0, data.n_gates_passed)
     last_drone_pos = jp.where(mask[..., None, None], drone_pos, data.last_drone_pos)
     disabled_drones = jp.where(mask[..., None], False, data.disabled_drones)
     steps = jp.where(mask, 0, data.steps)
@@ -741,7 +768,7 @@ def _reset_env_data(data: EnvData, mask: Array | None = None) -> EnvData:
     obstacles_visited = jp.linalg.norm(dpos, axis=-1) < data.sensor_range
     obstacles_visited = jp.where(mask[..., None, None], obstacles_visited, data.obstacles_visited)
     return data.replace(
-        target_gate=target_gate,
+        n_gates_passed=n_gates_passed,
         last_drone_pos=last_drone_pos,
         disabled_drones=disabled_drones,
         gates_visited=gates_visited,
@@ -768,17 +795,17 @@ def _update_visited_objects(data: EnvData) -> EnvData:
 
 
 def _update_target_gates(data: EnvData) -> EnvData:
-    """Update the target gate index based on the current target gate and the number of gates."""
-    n_gates = data.gates_pos.shape[1]
+    """Update the number of passed gates based on the current target gate and the gate sequence."""
     gates_pos, gates_quat = data.gates_pos, data.gates_quat
     drone_pos = data.sim_data.states.pos
-    gate_pos = gates_pos[jp.arange(gates_pos.shape[0])[:, None], data.target_gate % n_gates]
-    gate_quat = gates_quat[jp.arange(gates_quat.shape[0])[:, None], data.target_gate % n_gates]
-    passed = gate_passed(drone_pos, data.last_drone_pos, gate_pos, gate_quat, (0.45, 0.45))
-    # Update the target gate index. Increment by one if drones have passed a gate
-    target_gate = data.target_gate + passed * ~data.disabled_drones
-    target_gate = jp.where(target_gate >= n_gates, -1, target_gate)
-    return data.replace(target_gate=target_gate, last_drone_pos=data.sim_data.states.pos)
+    gate_ids = data.gate_sequence[data.n_gates_passed]
+    reverse = data.gate_sequence_direction[data.n_gates_passed] < 0
+    gate_pos = gates_pos[jp.arange(gates_pos.shape[0])[:, None], gate_ids]
+    gate_quat = gates_quat[jp.arange(gates_quat.shape[0])[:, None], gate_ids]
+    passed = gate_passed(drone_pos, data.last_drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
+    # Advance the gate-order progress by one if drones have passed the current waypoint.
+    n_gates_passed = data.n_gates_passed + (passed & ~data.disabled_drones)
+    return data.replace(n_gates_passed=n_gates_passed, last_drone_pos=data.sim_data.states.pos)
 
 
 def _mark_drones_for_reset(data: EnvData) -> EnvData:
@@ -827,7 +854,7 @@ def _disabled_drones(pos: Array, contacts: Array, data: EnvData) -> Array:
     not_in_platform |= jp.any(pos[..., :2] > data.takeoff_pos[..., :2] + 0.02, axis=-1)
     disabled = disabled | jp.any(pos < data.pos_limit_low, axis=-1) & not_in_platform
     disabled = disabled | jp.any(pos > data.pos_limit_high, axis=-1)
-    disabled = disabled | (data.target_gate == -1)
+    disabled = disabled | (data.n_gates_passed >= data.gate_sequence.shape[0])
     contacts = jp.any(contacts[:, :, None] & data.contact_masks, axis=-1)
     disabled = disabled | contacts
     return disabled

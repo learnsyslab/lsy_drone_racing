@@ -67,7 +67,9 @@ class DroneRaceEnv(RaceCoreEnv, Env):
         )
         self.action_space = build_action_space(control_mode, sim_config.drone_model)
         n_gates, n_obstacles = len(track.gates), len(track.obstacles)
-        self.observation_space = build_observation_space(n_gates, n_obstacles)
+        self.observation_space = build_observation_space(
+            n_gates, n_obstacles, self.data.gate_sequence.shape[0]
+        )
         self.settings = self.settings.replace(autoreset=False)
         self._step = self.build_step_fn()  # Apply new settings to capture autoreset effect
 
@@ -154,7 +156,9 @@ class VecDroneRaceEnv(RaceCoreEnv, VectorEnv):
         self.single_action_space = build_action_space(control_mode, sim_config.drone_model)
         self.action_space = batch_space(self.single_action_space, num_envs)
         n_gates, n_obstacles = len(track.gates), len(track.obstacles)
-        self.single_observation_space = build_observation_space(n_gates, n_obstacles)
+        self.single_observation_space = build_observation_space(
+            n_gates, n_obstacles, self.data.gate_sequence.shape[0]
+        )
         self.observation_space = batch_space(self.single_observation_space, num_envs)
 
     def reset(self, seed: int | None = None, options: dict | None = None) -> tuple[dict, dict]:

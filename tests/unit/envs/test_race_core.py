@@ -6,11 +6,8 @@ detection) rather than physics or rendering. They exercise both the public prope
 the same pattern used in the render integration tests.
 """
 
-import os
 from pathlib import Path
 from typing import Any
-
-os.environ["SCIPY_ARRAY_API"] = "1"
 
 import gymnasium
 import jax.numpy as jp
@@ -18,7 +15,7 @@ import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
 
-from lsy_drone_racing.envs.race_core import _update_disabled_drones, _update_target_gates
+from lsy_drone_racing.envs.race_core import _update_disabled_drones, _update_target_gates, obs
 from lsy_drone_racing.utils import load_config
 
 CONFIG_PATH = Path(__file__).parents[3] / "config"
@@ -66,7 +63,9 @@ def test_obs_structure_and_initial_values():
         "quat",
         "vel",
         "ang_vel",
-        "target_gate",
+        "n_gates_passed",
+        "gate_sequence",
+        "gate_sequence_direction",
         "gates_pos",
         "gates_quat",
         "gates_visited",
@@ -75,11 +74,16 @@ def test_obs_structure_and_initial_values():
     }
     assert set(obs.keys()) == expected_keys
     # Single-drone make() squeezes leading (world, drone) dims: pos is (3,), gates_pos is
-    # (n_gates, 3), target_gate is a 0-d scalar.
+    # (n_gates, 3), gate_sequence and gate_sequence_direction are (n_gates_to_pass,).
     assert np.asarray(obs["pos"]).shape == (3,)
     assert np.asarray(obs["gates_pos"]).ndim == 2
     assert np.asarray(obs["gates_pos"]).shape[1] == 3
-    assert int(np.asarray(obs["target_gate"]).item()) == 0
+    assert int(np.asarray(obs["n_gates_passed"]).item()) == 0
+    assert np.asarray(obs["gate_sequence"]).ndim == 1
+    assert np.asarray(obs["gate_sequence_direction"]).ndim == 1
+    assert (
+        np.asarray(obs["gate_sequence"]).shape == np.asarray(obs["gate_sequence_direction"]).shape
+    )
     env.close()
 
 
@@ -159,14 +163,16 @@ def test_terminated_false_after_reset():
 
 
 @pytest.mark.unit
-def test_terminated_true_when_target_gate_negative():
-    """Setting target_gate = -1 marks the drone disabled on the next step."""
+def test_terminated_true_when_n_gates_passed_finished():
+    """Setting n_gates_passed to the sequence length marks the drone disabled on the next step."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[...].set(-1))
+    env.unwrapped.data = data.replace(
+        n_gates_passed=data.n_gates_passed.at[...].set(data.gate_sequence.shape[0])
+    )
     _, _, terminated, _, _ = env.step(env.action_space.sample())
-    assert terminated, "terminated should be True when target_gate is -1"
+    assert terminated, "terminated should be True when n_gates_passed reaches the sequence length"
     env.close()
 
 
@@ -244,8 +250,8 @@ def test_truncated_on_timeout_does_not_terminate():
 
 
 @pytest.mark.unit
-def test_gate_pass_increments_target_gate():
-    """Crossing the target gate's plane makes ``_update_target_gates`` increment target_gate."""
+def test_gate_pass_increments_n_gates_passed():
+    """Crossing the target gate's plane makes ``_update_target_gates`` increment n_gates_passed."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
@@ -268,36 +274,78 @@ def test_gate_pass_increments_target_gate():
 
     # Call _update_target_gates directly so physics doesn't overwrite our crafted positions.
     new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 1
+    assert int(np.asarray(new_data.n_gates_passed[0, 0])) == 1
+    env.close()
+
+
+@pytest.mark.unit
+def test_gate_order_initial_obs_mapping():
+    """Initial observations must expose the configured gate sequence and directions."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [-2, 1]
+    env = make_env(track=config.env.track)
+    env_obs, _ = env.reset()
+    assert int(np.asarray(env_obs["n_gates_passed"]).item()) == 0
+    gate_sequence = np.asarray(env_obs["gate_sequence"])
+    assert (gate_sequence == np.array([1, 0])).all()
+    gate_sequence_direction = np.asarray(env_obs["gate_sequence_direction"])
+    assert (gate_sequence_direction == np.array([-1, 1])).all()
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_not_passed_without_crossing():
-    """Moving around without crossing the gate plane leaves target_gate unchanged."""
+    """Moving around without crossing the gate plane leaves n_gates_passed unchanged."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
-    assert int(np.asarray(data.target_gate[0, 0])) == 0
+    assert int(np.asarray(data.n_gates_passed[0, 0])) == 0
     # Nominal step without any crafted crossing: drone still on the takeoff pad.
     new_data = _update_target_gates(data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    assert int(np.asarray(new_data.n_gates_passed[0, 0])) == 0
+    env.close()
+
+
+@pytest.mark.unit
+def test_repeated_gate_obs_mapping_after_pass():
+    """After passing a repeated gate, obs must keep the configured repeated sequence entry."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [1, -1]
+    env = make_env(track=config.env.track)
+    env.reset()
+    data = env.unwrapped.data
+
+    gate_pos = np.asarray(data.gates_pos[0, 0])
+    gate_quat_xyzw = np.asarray(data.gates_quat[0, 0])
+    forward = R.from_quat(gate_quat_xyzw).apply(np.array([1.0, 0.0, 0.0]))
+
+    behind = gate_pos - 0.05 * forward
+    front = gate_pos + 0.05 * forward
+
+    new_last = data.last_drone_pos.at[0, 0, :].set(jp.asarray(behind))
+    new_pos = data.sim_data.states.pos.at[0, 0, :].set(jp.asarray(front))
+    new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
+    env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
+
+    next_data = _update_target_gates(env.unwrapped.data)
+    next_obs = obs(next_data)
+    assert int(np.asarray(next_obs["n_gates_passed"][0, 0])) == 1
+    assert int(np.asarray(next_obs["gate_sequence"][0, 0, 1])) == 0
+    assert int(np.asarray(next_obs["gate_sequence_direction"][0, 0, 1])) == -1
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_pass_non_target_gate_does_not_increment():
-    """Crossing a gate that is not the current target must not increment target_gate."""
-    from scipy.spatial.transform import Rotation as R
-
+    """Crossing a gate that is not the current target must not increment n_gates_passed."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
     n_gates = data.gates_pos.shape[1]
     assert n_gates >= 2, "need at least 2 gates for this test"
-    assert int(np.asarray(data.target_gate[0, 0])) == 0
+    assert int(np.asarray(data.n_gates_passed[0, 0])) == 0
 
-    # Straddle gate 1 (the *next* gate) while target_gate is still 0.
+    # Straddle gate 1 (the *next* gate) while n_gates_passed is still 0.
     non_target_idx = 1
     gate_pos = np.asarray(data.gates_pos[0, non_target_idx])
     gate_quat_xyzw = np.asarray(data.gates_quat[0, non_target_idx])
@@ -311,16 +359,14 @@ def test_gate_pass_non_target_gate_does_not_increment():
     new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
-    new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    next_data = _update_target_gates(env.unwrapped.data)
+    assert int(np.asarray(next_data.n_gates_passed[0, 0])) == 0
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_not_passed_in_reverse():
     """Flying through the gate from +x to -x (reverse) must not count as a pass."""
-    from scipy.spatial.transform import Rotation as R
-
     env = make_env()
     env.reset()
     data = env.unwrapped.data
@@ -338,16 +384,14 @@ def test_gate_not_passed_in_reverse():
     new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
-    new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    next_data = _update_target_gates(env.unwrapped.data)
+    assert int(np.asarray(next_data.n_gates_passed[0, 0])) == 0
     env.close()
 
 
 @pytest.mark.unit
 def test_gate_not_passed_when_outside_gate_box():
     """Crossing the gate plane but far outside the gate opening must not count as a pass."""
-    from scipy.spatial.transform import Rotation as R
-
     env = make_env()
     env.reset()
     data = env.unwrapped.data
@@ -368,29 +412,28 @@ def test_gate_not_passed_when_outside_gate_box():
     new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
-    new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == 0
+    next_data = _update_target_gates(env.unwrapped.data)
+    assert int(np.asarray(next_data.n_gates_passed[0, 0])) == 0
     env.close()
 
 
 @pytest.mark.unit
-def test_gate_pass_at_last_gate_clamps_to_negative_one():
-    """Passing the final gate must set target_gate to -1 (course finished sentinel)."""
-    from scipy.spatial.transform import Rotation as R
-
+def test_gate_pass_at_last_gate_sets_n_gates_passed_to_sequence_length():
+    """Passing the final gate must set n_gates_passed to the full sequence length."""
     env = make_env()
     env.reset()
     data = env.unwrapped.data
-    n_gates = data.gates_pos.shape[1]
+    n_gate_passes = data.gate_sequence.shape[0]
 
-    # Pre-advance target_gate to the last gate so _update_target_gates will check against it.
-    last_idx = n_gates - 1
-    env.unwrapped.data = data.replace(target_gate=data.target_gate.at[0, 0].set(last_idx))
+    # Pre-advance n_gates_passed to the last sequence entry so _update_target_gates checks it.
+    last_idx = n_gate_passes - 1
+    env.unwrapped.data = data.replace(n_gates_passed=data.n_gates_passed.at[0, 0].set(last_idx))
     data = env.unwrapped.data
 
     # Craft a forward crossing of the last gate.
-    gate_pos = np.asarray(data.gates_pos[0, last_idx])
-    gate_quat_xyzw = np.asarray(data.gates_quat[0, last_idx])
+    gate_idx = int(np.asarray(data.gate_sequence[last_idx]))
+    gate_pos = np.asarray(data.gates_pos[0, gate_idx])
+    gate_quat_xyzw = np.asarray(data.gates_quat[0, gate_idx])
     forward = R.from_quat(gate_quat_xyzw).apply(np.array([1.0, 0.0, 0.0]))
 
     behind = gate_pos - 0.05 * forward
@@ -401,8 +444,38 @@ def test_gate_pass_at_last_gate_clamps_to_negative_one():
     new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
     env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
 
-    new_data = _update_target_gates(env.unwrapped.data)
-    assert int(np.asarray(new_data.target_gate[0, 0])) == -1
+    next_data = _update_target_gates(env.unwrapped.data)
+    assert int(np.asarray(next_data.n_gates_passed[0, 0])) == n_gate_passes
+    next_obs = obs(next_data)
+    assert int(np.asarray(next_obs["n_gates_passed"][0, 0])) == n_gate_passes
+    env.close()
+
+
+@pytest.mark.unit
+def test_reverse_only_waypoint_can_finish_track():
+    """A reverse-only gate-order entry must be passable and finish the track."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gate_order = [-1]
+    env = make_env(track=config.env.track)
+    env.reset()
+    data = env.unwrapped.data
+
+    gate_pos = np.asarray(data.gates_pos[0, 0])
+    gate_quat_xyzw = np.asarray(data.gates_quat[0, 0])
+    forward = R.from_quat(gate_quat_xyzw).apply(np.array([1.0, 0.0, 0.0]))
+
+    front = gate_pos + 0.05 * forward
+    behind = gate_pos - 0.05 * forward
+
+    new_last = data.last_drone_pos.at[0, 0, :].set(jp.asarray(front))
+    new_pos = data.sim_data.states.pos.at[0, 0, :].set(jp.asarray(behind))
+    new_sim_data = data.sim_data.replace(states=data.sim_data.states.replace(pos=new_pos))
+    env.unwrapped.data = data.replace(last_drone_pos=new_last, sim_data=new_sim_data)
+
+    next_data = _update_target_gates(env.unwrapped.data)
+    next_obs = obs(next_data)
+    assert int(np.asarray(next_data.n_gates_passed[0, 0])) == 1
+    assert int(np.asarray(next_obs["n_gates_passed"][0, 0])) == 1
     env.close()
 
 

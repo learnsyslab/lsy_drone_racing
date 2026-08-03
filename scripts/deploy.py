@@ -48,7 +48,7 @@ def main(config: str = "level2.toml", controller: str | None = None):
         control_mode=config.env.control_mode,
     )
     try:
-        obs, info = env.reset(options=config.deploy)
+        obs, info = env.reset(seed=config.env.seed, options=config.deploy)
         next_obs = obs  # Set next_obs to avoid errors when the loop never enters
 
         control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
@@ -73,7 +73,7 @@ def main(config: str = "level2.toml", controller: str | None = None):
                 exc = dt - 1 / config.env.freq
                 logger.warning(f"Controller execution time exceeded loop frequency by {exc:.3f}s.")
         ep_time = time.perf_counter() - start_time
-        finished_track = next_obs["target_gate"] == -1
+        finished_track = next_obs["n_gates_passed"] == next_obs["gate_sequence"].shape[0]
         logger.info(f"Track time: {ep_time:.3f}s" if finished_track else "Task not completed")
     finally:
         env.close()

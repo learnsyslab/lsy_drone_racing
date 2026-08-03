@@ -74,7 +74,8 @@ class MultiDroneRaceEnv(RaceCoreEnv, Env):
             build_action_space(control_mode, sim_config.drone_model), n_drones
         )
         self.observation_space = batch_space(
-            build_observation_space(n_gates, n_obstacles), n_drones
+            build_observation_space(n_gates, n_obstacles, self.data.gate_sequence.shape[0]),
+            n_drones,
         )
         self.settings = self.settings.replace(autoreset=False)
         self._step = self.build_step_fn()  # Apply new settings to capture autoreset effect
@@ -170,7 +171,8 @@ class VecMultiDroneRaceEnv(RaceCoreEnv, VectorEnv):
         )
         self.action_space = batch_space(batch_space(self.single_action_space), num_envs)
         self.single_observation_space = batch_space(
-            build_observation_space(n_gates, n_obstacles), n_drones
+            build_observation_space(n_gates, n_obstacles, self.data.gate_sequence.shape[0]),
+            n_drones,
         )
         self.observation_space = batch_space(self.single_observation_space, num_envs)
 

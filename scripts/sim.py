@@ -10,6 +10,7 @@ Look for instructions in `README.md` and in the official documentation.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -20,8 +21,6 @@ from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 from lsy_drone_racing.utils import load_config, load_controller
 
 if TYPE_CHECKING:
-    from ml_collections import ConfigDict
-
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
 
@@ -81,13 +80,18 @@ def simulate(
         while True:
             curr_time = i / config.env.freq
 
+            t_loop = time.perf_counter()
             action = controller.compute_control(obs, info)
+            control_time = time.perf_counter() - t_loop
 
             obs, reward, terminated, truncated, info = env.step(action)
             # Update the controller internal state and models.
+            t_callback = time.perf_counter()
             controller_finished = controller.step_callback(
                 action, obs, reward, terminated, truncated, info
             )
+            if (exc := time.perf_counter() - t_callback + control_time - 1 / config.env.freq) > 0:
+                logger.warning(f"Controller execution time exceeded loop frequency by {exc:.3f}s.")
             # Add up reward, collisions
             if terminated or truncated or controller_finished:
                 break
@@ -98,23 +102,23 @@ def simulate(
             i += 1
 
         controller.episode_callback()  # Update the controller internal state and models.
-        log_episode_stats(obs, info, config, curr_time)
+        log_episode_stats(obs, curr_time)
         controller.episode_reset()
-        ep_times.append(curr_time if obs["target_gate"] == -1 else None)
+        finished = obs["n_gates_passed"] == obs["gate_sequence"].shape[0]
+        ep_times.append(curr_time if finished else None)
 
     # Close the environment
     env.close()
     return ep_times
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
+def log_episode_stats(obs: dict, curr_time: float):
     """Log the statistics of a single episode."""
-    gates_passed = obs["target_gate"]
-    if gates_passed == -1:  # The drone has passed the final gate
-        gates_passed = len(config.env.track.gates)
-    finished = gates_passed == len(config.env.track.gates)
+    finished = obs["n_gates_passed"] == obs["gate_sequence"].shape[0]
     logger.info(
-        f"Flight time (s): {curr_time}\nFinished: {finished}\nGates passed: {gates_passed}\n"
+        f"Flight time (s): {curr_time}\n"
+        f"Finished: {finished}\n"
+        f"Gates passed: {obs['n_gates_passed']}\n"
     )
 
 
