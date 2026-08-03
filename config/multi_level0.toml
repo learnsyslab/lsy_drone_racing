@@ -5,7 +5,7 @@
 # | `level0.toml`       | *No*                           | *No*                        | *No*              | Perfect knowledge |
 [[controller]]
 file = "attitude_controller_multi.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
-[[controller]]  # Add the controller files for each drone
+[[controller]]
 file = "attitude_mpc_multi.py"
 
 [deploy]
@@ -17,17 +17,21 @@ check_drone_start_pos = true
 # Lets you practice your controller without putting up gates & obstacles, assumes nominal positions given below.
 real_track_objects = true
 
-[[deploy.drones]]
-radio = 0
-id = 10
-channel = 100
-drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
+# Specify the minimal and maximal height for the return controller 
+return_height_min = 1.75
+return_height_max = 2.0
 
 [[deploy.drones]]
 radio = 0
+id = 52
+channel = 80
+drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
+
+[[deploy.drones]]
+radio = 1
 id = 20
 channel = 100
-drone_model = "cf21B_500"                        # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
+drone_model = "cf21B_500"                     # Model of the drone, i.e., cf2x_L250, cf2x_P250, cf2x_T500, cf21B_500. For this course, we use cf21B_500
 
 
 [sim]
