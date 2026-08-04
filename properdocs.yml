@@ -1,0 +1,111 @@
+site_name: LSY Autonomous Drone Racing
+site_description: LSY Autonomous Drone Racing Project Course
+site_url: https://learnsyslab.github.io/lsy_drone_racing/
+repo_name: learnsyslab/lsy_drone_racing
+repo_url: https://github.com/learnsyslab/lsy_drone_racing
+
+docs_dir: docs
+
+theme:
+  name: material
+  logo: img/LSY_Logo_white_path.svg
+  favicon: img/LSY_Logo_Swoosh.svg
+  features:
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+    - navigation.footer
+    - navigation.indexes
+    - navigation.tabs
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - The Drone Racing Project: getting_started/general.md
+    - Installation and Setup: getting_started/setup.md
+  - The Challenge:
+    - Overview: challenge/overview.md
+    - Simulation: challenge/simulation.md
+    - Deployment: challenge/deployment.md
+    - Online Competition: challenge/online_competition.md
+  - Python API:
+    - Control:
+      - control/index.md
+      - control.controller: control/controller.md
+      - control.state_controller: control/state_controller.md
+      - control.attitude_controller: control/attitude_controller.md
+      - control.attitude_mpc: control/attitude_mpc.md
+    - Environments:
+      - envs/index.md
+      - envs.drone_race: envs/drone_race.md
+      - envs.real_drone_race: envs/real_drone_race.md
+    - Utils:
+      - utils/index.md
+      - utils.checks: utils/checks.md
+      - utils.utils: utils/utils.md
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            merge_init_into_class: true
+            show_submodules: false
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - toc:
+      permalink: true
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/learnsyslab/lsy_drone_racing
+
+watch:
+  - lsy_drone_racing/

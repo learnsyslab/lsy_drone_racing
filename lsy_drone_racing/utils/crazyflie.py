@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import multiprocessing as mp
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -18,6 +20,8 @@ from scipy.spatial.transform import Rotation as R
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+    from concurrent.futures import Future
+    from multiprocessing.synchronize import Event
 
     from numpy.typing import NDArray
 
@@ -41,6 +45,7 @@ class Crazyflie:
         drone_name: str,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
+        update_freq: float = 30,
     ):
         """Create a Crazyflie wrapper.
 
@@ -49,10 +54,13 @@ class Crazyflie:
             drone_name: Name of the drone in ROS, e.g. cf10.
             cache_dir: Directory used for cflib2 TOC caching.
             power_cycle_on_connect: Whether to power-cycle the STM32 domain before connecting.
+            update_freq: Frequency (Hz) of external mocap pose updates sent to the drone estimator
+                by the background updater thread. Defaults to 30.
         """
         self.uri = uri
         self.drone_name = drone_name
         self.power_cycle_on_connect = power_cycle_on_connect
+        self.update_freq = update_freq
         self.context = LinkContext()
         cache_dir = Path(__file__).parent / ".cache" if cache_dir is None else Path(cache_dir)
         self.toc_cache = FileTocCache(str(cache_dir))
@@ -64,6 +72,9 @@ class Crazyflie:
         self._commander_level: Literal["low", "high"] | None = None
         self._state_setpoint_fallback_warned = False
         self._loop = asyncio.new_event_loop()
+        self._loop_thread: threading.Thread | None = None
+        self._estimator_stop_event: Event | None = None
+        self._estimator_future: Future[None] | None = None
 
     @classmethod
     def from_radio(
@@ -74,6 +85,7 @@ class Crazyflie:
         drone_name: str | None = None,
         cache_dir: str | Path | None = None,
         power_cycle_on_connect: bool = True,
+        update_freq: float = 30,
     ) -> Crazyflie:
         """Create a Crazyflie wrapper from deployment radio settings."""
         return cls(
@@ -81,6 +93,7 @@ class Crazyflie:
             f"cf{drone_id}" if drone_name is None else drone_name,
             cache_dir=cache_dir,
             power_cycle_on_connect=power_cycle_on_connect,
+            update_freq=update_freq,
         )
 
     @property
@@ -94,8 +107,9 @@ class Crazyflie:
         return self._cf is not None
 
     def connect(self, timeout: float = 10.0) -> None:
-        """Connect to the Crazyflie."""
+        """Connect to the Crazyflie and start streaming mocap poses to its estimator."""
         self._run(self._connect, timeout)
+        self._start_estimator_updater()
 
     def reset(self, arm: bool = False) -> None:
         """Apply race settings, reset the estimator, and optionally arm the drone."""
@@ -166,7 +180,6 @@ class Crazyflie:
                     raise RuntimeError("Return-to-start was interrupted")
                 if not self.is_connected:
                     raise RuntimeError("Drone connection lost")
-                self.send_external_pose()
                 self._run(asyncio.sleep, 0.05)
 
         vel_norm = np.linalg.norm(initial_obs["vel"])
@@ -201,27 +214,66 @@ class Crazyflie:
         self._run(self._emergency_stop)
 
     def close(self, emergency_stop: bool = True) -> None:
-        """Emergency-stop, disconnect, and close the cflib2 event loop."""
+        """Emergency-stop, stop the estimator updater, disconnect, and close the event loop."""
         if self._loop.is_closed():
             return
         try:
             if emergency_stop and self.is_connected:
                 self._run(self._emergency_stop)
                 self._run(asyncio.sleep, 0.1)
-
+            if self._estimator_stop_event is not None:
+                self._estimator_stop_event.set()
+            if self._estimator_future is not None:
+                try:
+                    self._estimator_future.result(timeout=max(1.0, 2 / self.update_freq))
+                except Exception as exc:
+                    logger.warning(f"Stopping estimator updater failed: {exc}")
             if self._cf is not None:
                 self._run(self._disconnect)
         finally:
+            self._estimator_future = None
+            self._estimator_stop_event = None
+            self._stop_loop_thread()
             try:
                 self._ros_connector.close()
             finally:
                 self._loop.close()
 
     def _run(self, operation: Callable[..., Awaitable[Any]], *args: Any, **kwargs: Any) -> Any:
-        """Run an asynchronous operation on this drone's event loop."""
+        """Run an asynchronous operation on this drone's event loop.
+
+        Before the estimator updater thread is started, the loop is driven synchronously via
+        ``run_until_complete``. Once the updater is running the loop is owned by the background
+        thread, so operations are submitted to it with ``run_coroutine_threadsafe`` instead.
+        """
         if self._loop.is_closed():
             raise RuntimeError("Crazyflie wrapper is already closed.")
+        if self._loop_thread is not None:
+            return asyncio.run_coroutine_threadsafe(operation(*args, **kwargs), self._loop).result()
         return self._loop.run_until_complete(operation(*args, **kwargs))
+
+    def _start_estimator_updater(self) -> None:
+        """Start continuous mocap updates after the radio link is connected."""
+        if self._loop_thread is not None:
+            return
+        ctx = mp.get_context("spawn")
+        self._estimator_stop_event = ctx.Event()
+        self._loop_thread = threading.Thread(
+            target=self._loop.run_forever, name=f"{self.drone_name}-event-loop", daemon=True
+        )
+        self._loop_thread.start()
+        self._estimator_future = asyncio.run_coroutine_threadsafe(
+            self._update_estimators(self._estimator_stop_event), self._loop
+        )
+
+    def _stop_loop_thread(self) -> None:
+        """Stop the persistent event loop used by the estimator updater."""
+        if self._loop_thread is None:
+            return
+
+        self._loop.call_soon_threadsafe(self._loop.stop)
+        self._loop_thread.join()
+        self._loop_thread = None
 
     async def _connect(self, timeout: float) -> None:
         if self.is_connected:
@@ -304,6 +356,21 @@ class Crazyflie:
         quat = self._ros_connector.quat[self.drone_name]
         await self.cf.localization().external_pose().send_external_pose(pos=pos, quat=quat)
 
+    async def _update_estimators(self, stop_event: Event) -> None:
+        """Continuously send the mocap pose to the Crazyflie estimator until stopped."""
+        period = 1 / self.update_freq
+        next_tick = asyncio.get_running_loop().time()
+        while not stop_event.is_set():
+            # A single transient send failure must not kill the updater task; log and keep going.
+            # This mirrors the per-drone error handling that DroneSwarm gets from _parallel_by_uri,
+            # which swallows every exception (including disconnects) rather than stopping the loop.
+            try:
+                await self._send_external_pose()
+            except Exception as exc:
+                logger.error(f"Updating estimator of {self.uri} failed: {exc}")
+            next_tick += period
+            await asyncio.sleep(max(0.0, next_tick - asyncio.get_running_loop().time()))
+
     async def _send_attitude_setpoint(
         self, roll: float, pitch: float, yaw_rate: float, thrust: int
     ) -> None:
@@ -319,9 +386,7 @@ class Crazyflie:
         body_rates: NDArray[np.floating],
     ) -> None:
         await self._change_commander_level("low")
-        await self.cf.commander().send_setpoint_full_state(
-            pos, vel, acc, quat, body_rates[0], body_rates[1], body_rates[2]
-        )
+        await self.cf.commander().send_setpoint_full_state(pos, vel, acc, quat, body_rates)
 
     async def _stop_setpoint(self) -> None:
         await self.cf.commander().send_stop_setpoint()

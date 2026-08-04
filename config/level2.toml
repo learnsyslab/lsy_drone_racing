@@ -53,6 +53,10 @@ control_mode = "state"  # Control mode of the environment. Can be either "state"
 # Note: The order and therefore also height is not randomized!
 randomize = false
 
+# Order in which the gates have to be passed. Entries are signed gate numbers, not gate IDs:
+# `1` means gate ID 0 in forward direction, `-1` means the same gate in reverse direction.
+gate_order = [1, 2, 3, 4]
+
 # Tall gates: 1.195m height. Short gates: 0.695m height. Height is measured from the ground to the center of the gate.
 # Gates are square. Gates are 0.72m wide (outer dimensions of the frame) with a 0.4m wide opening.
 [[env.track.gates]]

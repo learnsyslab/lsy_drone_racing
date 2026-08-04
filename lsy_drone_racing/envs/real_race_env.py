@@ -1,14 +1,14 @@
 """Real-world drone racing environments.
 
 This module contains the environments for controlling a single or multiple drones in a real-world
-race track. It mirrors the :mod:`~lsy_drone_racing.envs.drone_race` module as closely as possible,
-but uses data from real-world observations from motion capture systems and sends actions to the
-real drones.
+race track. It mirrors the [drone_race][lsy_drone_racing.envs.drone_race] module as closely as
+possible, but uses data from real-world observations from motion capture systems and sends actions
+to the real drones.
 """
 
 from __future__ import annotations
 
-import time
+import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -19,8 +19,9 @@ from crazyflow.dynamics import available_dynamics
 from crazyflow.dynamics.core import load_params
 from drone_estimators.ros_nodes.ros2_connector import ROSConnector
 from gymnasium import Env
+from scipy.spatial.transform import Rotation as R
 
-from lsy_drone_racing.envs.utils import gate_passed, load_track
+from lsy_drone_racing.envs.utils import gate_passed, load_gate_order, load_track
 from lsy_drone_racing.utils.checks import check_drone_start_pos, check_race_track
 from lsy_drone_racing.utils.crazyflie import Crazyflie
 
@@ -28,12 +29,14 @@ if TYPE_CHECKING:
     from ml_collections import ConfigDict
     from numpy.typing import NDArray
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class EnvData:
     """Struct holding the data of all auxiliary variables for the environment."""
 
-    target_gate: NDArray
+    n_gates_passed: NDArray
     gates_visited: NDArray
     obstacles_visited: NDArray
     last_drone_pos: NDArray[np.float32]
@@ -43,7 +46,7 @@ class EnvData:
     def create(cls, n_drones: int, n_gates: int, n_obstacles: int) -> EnvData:
         """Create an instance of the EnvData class."""
         return EnvData(
-            target_gate=np.zeros(n_drones, dtype=int),
+            n_gates_passed=np.zeros(n_drones, dtype=int),
             gates_visited=np.zeros((n_drones, n_gates), dtype=bool),
             obstacles_visited=np.zeros((n_drones, n_obstacles), dtype=bool),
             last_drone_pos=np.zeros((n_drones, 3), dtype=np.float32),
@@ -51,7 +54,7 @@ class EnvData:
 
     def reset(self, last_drone_pos: NDArray[np.float32]):
         """Reset the environment data."""
-        self.target_gate[...] = 0
+        self.n_gates_passed[...] = 0
         self.gates_visited[...] = False
         self.obstacles_visited[...] = False
         self.last_drone_pos[...] = last_drone_pos
@@ -65,8 +68,6 @@ class RealRaceCoreEnv:
     This class acts as a generic core implementation of the environment logic that can be reused for
     both single-agent and multi-agent deployments.
     """
-
-    POS_UPDATE_FREQ = 30  # Frequency of position updates to the drone estimator in Hz
 
     def __init__(
         self,
@@ -84,7 +85,7 @@ class RealRaceCoreEnv:
             drones: List of all drones in the race, including their channel and id.
             rank: Rank of the drone that is controlled by this environment.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
@@ -94,7 +95,9 @@ class RealRaceCoreEnv:
         # Static env data
         self.n_drones = len(drones)
         self.gates, self.obstacles, self.drones = load_track(track)
+        self.randomize_track = track.randomize
         self.n_gates = len(self.gates.pos)
+        self.gate_sequence, self.gate_sequence_direction = load_gate_order(track, self.n_gates)
         self.n_obstacles = len(self.obstacles.pos)
         self.pos_limit_low = np.array(track.safety_limits["pos_limit_low"])
         self.pos_limit_high = np.array(track.safety_limits["pos_limit_high"])
@@ -131,6 +134,13 @@ class RealRaceCoreEnv:
         # disabled, they are equal to the nominal positions defined in the track config.
         if options.get("real_track_objects", True):
             self._update_track_poses()
+            if self.randomize_track:
+                self._randomize_nominal_track(seed)
+        elif self.randomize_track:
+            raise ValueError(
+                "Randomized tracks require measured track poses. Set deploy.real_track_objects to "
+                "true or disable env.track.randomize."
+            )
         if options.get("check_race_track", True):
             check_race_track(
                 gates_pos=self.gates.pos,
@@ -152,7 +162,6 @@ class RealRaceCoreEnv:
 
         self.drone.connect(timeout=10.0)
         self.drone.reset(arm=True)
-        self._last_drone_pos_update = 0  # Last time a position was sent to the drone estimator
 
         return self.obs(), self.info()
 
@@ -177,22 +186,18 @@ class RealRaceCoreEnv:
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
 
-        gate_pos = self.gates.pos[self.data.target_gate]
-        gate_quat = self.gates.quat[self.data.target_gate]
+        gate_ids = self.gate_sequence[self.data.n_gates_passed]
+        gate_reverse = self.gate_sequence_direction[self.data.n_gates_passed] < 0
+        gate_pos = self.gates.pos[gate_ids]
+        gate_quat = self.gates.quat[gate_ids]
 
         with jax.default_device(self.device):  # Ensure gate_passed runs on the CPU
             passed = gate_passed(
-                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, (0.45, 0.45)
+                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, gate_reverse, (0.45, 0.45)
             )
-        self.data.target_gate += np.asarray(passed)
-        self.data.target_gate[self.data.target_gate >= self.n_gates] = -1
+        self.data.n_gates_passed = self.data.n_gates_passed + np.asarray(passed)
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
-        # Send vicon position updates to the drone at a fixed frequency irrespective of the env freq
-        # Sending too many updates may deteriorate the performance of the drone, hence the limiter
-        if (t := time.perf_counter()) - self._last_drone_pos_update > 1 / self.POS_UPDATE_FREQ:
-            self.drone.send_external_pose()
-            self._last_drone_pos_update = t
         return self.obs(), self.reward(), self.terminated(), self.truncated(), self.info()
 
     def obs(self) -> dict[str, NDArray]:
@@ -211,12 +216,17 @@ class RealRaceCoreEnv:
         drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
         drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
         drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
+        gate_sequence_shape = (self.n_drones, self.gate_sequence.shape[0])
+        gate_sequence = np.broadcast_to(self.gate_sequence, gate_sequence_shape)
+        gate_sequence_direction = np.broadcast_to(self.gate_sequence_direction, gate_sequence_shape)
         obs = {
             "pos": drone_pos,
             "quat": drone_quat,
             "vel": drone_vel,
             "ang_vel": drone_ang_vel,
-            "target_gate": self.data.target_gate,
+            "n_gates_passed": self.data.n_gates_passed,
+            "gate_sequence": gate_sequence,
+            "gate_sequence_direction": gate_sequence_direction,
             "gates_pos": gates_pos,
             "gates_quat": gates_quat,
             "gates_visited": self.data.gates_visited,
@@ -236,11 +246,11 @@ class RealRaceCoreEnv:
         Returns:
             Reward for the current state.
         """
-        return -1.0 * (self.data.target_gate == -1)  # Implicit float conversion
+        return -1.0 * (self.data.n_gates_passed >= self.gate_sequence.shape[0])
 
     def terminated(self) -> NDArray:
         """Check if the episode is terminated."""
-        terminated = self.data.target_gate == -1
+        terminated = self.data.n_gates_passed >= self.gate_sequence.shape[0]
         terminated[self.rank] |= not self.drone.is_connected
         terminated |= np.any(
             (self.pos_limit_low > self.data.last_drone_pos)
@@ -280,6 +290,31 @@ class RealRaceCoreEnv:
                 "track objects in Vicon and started the motion capture tracking node?"
             ) from e
 
+    def _randomize_nominal_track(self, seed: int | None = None):
+        """Replace the nominal track poses with a noisy prior around the measured poses."""
+        if seed is None or seed == -1:
+            seed = int(np.random.default_rng().integers(0, 2**32 - 1))
+        rng = np.random.default_rng(seed)
+        kwargs = self.randomizations.gate_pos.kwargs
+        self.gates.nominal_pos[...] = self.gates.pos - rng.uniform(
+            kwargs.minval, kwargs.maxval, self.gates.pos.shape
+        )
+        kwargs = self.randomizations.gate_rpy.kwargs
+        gates_rpy = R.from_quat(self.gates.quat).as_euler("xyz")
+        gates_rpy -= rng.uniform(kwargs.minval, kwargs.maxval, gates_rpy.shape)
+        self.gates.nominal_quat[...] = R.from_euler("xyz", gates_rpy).as_quat()
+        kwargs = self.randomizations.obstacle_pos.kwargs
+        self.obstacles.nominal_pos[...] = self.obstacles.pos - rng.uniform(
+            kwargs.minval, kwargs.maxval, self.obstacles.pos.shape
+        )
+        for i, name in enumerate(self.drone_names):
+            self.drones.pos[i, ...] = self._ros_connector.pos[name]
+        logger.info(
+            f"Synthesized nominal track (seed: {seed})\n"
+            f"Gate positions:\n{self.gates.nominal_pos}\n"
+            f"Obstacle positions:\n{self.obstacles.nominal_pos}"
+        )
+
     def _jit(self):
         """JIT compile jax functions.
 
@@ -289,9 +324,10 @@ class RealRaceCoreEnv:
         drone_pos = np.zeros((self.n_drones, 3), dtype=np.float32)
         gate_pos = np.zeros((self.n_drones, 3), dtype=np.float32)
         gate_quat = np.zeros((self.n_drones, 4), dtype=np.float32)
+        reverse = np.zeros(self.n_drones, dtype=bool)
         with jax.default_device(self.device):
             jax.block_until_ready(
-                gate_passed(drone_pos, drone_pos, gate_pos, gate_quat, (0.45, 0.45))
+                gate_passed(drone_pos, drone_pos, gate_pos, gate_quat, reverse, (0.45, 0.45))
             )
 
     def close(self):
@@ -338,7 +374,8 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Note:
         This environment is designed for single-drone racing. For multi-drone racing, use the
-        :class:`~lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv` class instead.
+        [RealMultiDroneRaceEnv][lsy_drone_racing.envs.real_race_env.RealMultiDroneRaceEnv] class
+        instead.
     """
 
     def __init__(
@@ -354,14 +391,14 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
 
         Action space:
             The action space is a single action vector for the drone with the environment rank.
-            See :class:`~.RealRaceCoreEnv` for more information. Depending on the control mode, it
-            is either a 13D desired drone state setpoint, or a 4D desired attitude and collective
-            thrust setpoint.
+            See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+            information. Depending on the control mode, it is either a 13D desired drone state
+            setpoint, or a 4D desired attitude and collective thrust setpoint.
 
         Observation space:
             The observation space is a dictionary containing the state of all drones in the race.
             It mimics exactly the observation space of
-            :class:`lsy_drone_racing.envs.drone_race.DroneRaceEnv`.
+            [lsy_drone_racing.envs.drone_race.DroneRaceEnv][].
 
         Note:
             rclpy must be initialized before creating this environment.
@@ -369,7 +406,7 @@ class RealDroneRaceEnv(RealRaceCoreEnv, Env):
         Args:
             drones: List of all drones in the race, including their channel and id.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.
@@ -426,7 +463,8 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
 
     Action space:
         The action space is a **single** action vector for the drone with the environment rank.
-        See :class:`~.RealRaceCoreEnv` for more information.
+        See [RealRaceCoreEnv][lsy_drone_racing.envs.real_race_env.RealRaceCoreEnv] for more
+        information.
 
     Warning:
         The action space differs from the action space of the simulated counterpart. This deviation
@@ -436,7 +474,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
     Observation space:
         The observation space is a dictionary containing the state of all drones in the race.
         It mimics exactly the observation space of
-        :class:`lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv`.
+        [lsy_drone_racing.envs.multi_drone_race.MultiDroneRaceEnv][].
 
     Note:
         Each instance of this environment controls only one drone (specified by rank), but provides
@@ -460,7 +498,7 @@ class RealMultiDroneRaceEnv(RealRaceCoreEnv, Env):
             drones: List of all drones in the race, including their channel and id.
             rank: Rank of the drone that is controlled by this environment.
             freq: Environment step frequency.
-            track: Track configuration (see :func:`~lsy_drone_racing.envs.utils.load_track`).
+            track: Track configuration (see `load_track`).
             randomizations: Randomization configuration.
             sensor_range: Sensor range. Determines at which distance the exact position of the
                 gates and obstacles is reveiled.

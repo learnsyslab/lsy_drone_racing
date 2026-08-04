@@ -86,7 +86,7 @@ def control_loop(rank: int, config: ConfigDict, start_barrier: Barrier):
                     throttle_duration_sec=2,
                 )
         ep_time = time.perf_counter() - start_time
-        finished_track = (next_obs["target_gate"] == -1)[rank]
+        finished_track = (next_obs["n_gates_passed"] == next_obs["gate_sequence"].shape[-1])[rank]
         print(f"Track time: {ep_time:.3f}s" if finished_track else "Task not completed")
     finally:
         node.destroy_node()

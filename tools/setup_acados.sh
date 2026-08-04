@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 # Check if environment variable is already set
 if [ -z "$PIXI_PROJECT_ROOT" ]; then
