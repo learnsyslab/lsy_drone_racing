@@ -315,7 +315,6 @@ class RealMultiDroneRaceEnvClient(Env):
 
     def _init_ros_connectors(self):
         """Open ROS connector for own drone (estimator) and others (TF)."""
-        other_names = [n for i, n in enumerate(self.drone_names) if i != self.rank]
         self._ros_connector = ROSConnector(
             estimator_names=self.drone_names,
             cmd_topic=f"/drones/{self.drone_name}/command",
