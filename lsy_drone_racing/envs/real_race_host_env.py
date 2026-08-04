@@ -529,7 +529,6 @@ class CrazyflieRealRaceHost:
                     self.gates.quat[i] = ros_connector.quat[f"gate{i + 1}"]
                 for i in range(self.n_obstacles):
                     self.obstacles.pos[i] = ros_connector.pos[f"obstacle{i + 1}"]
-                    self.obstacles.quat[i] = ros_connector.quat[f"obstacle{i + 1}"]
             finally:
                 if ros_connector:
                     ros_connector.close()
