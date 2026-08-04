@@ -101,7 +101,7 @@ def main(
         finished = bool(info["finished_track"])
         logger.info(
             f"Client {drone_rank}: Episode completed in {ep_time:.3f}s "
-            f"(finished={finished}, target_gate={info['target_gate']})"
+            f"(finished={finished}, gates_passed={info['n_gates_passed']})"
         )
     except KeyboardInterrupt:
         logger.info(f"Client {drone_rank}: Interrupted by user")

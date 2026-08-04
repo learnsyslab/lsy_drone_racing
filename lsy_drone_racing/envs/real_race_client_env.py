@@ -24,7 +24,7 @@ from drone_racing_msgs.srv import RealCalibrateClock  # type: ignore[import-unty
 from gymnasium import Env
 
 from lsy_drone_racing.envs.real_race_env import EnvData
-from lsy_drone_racing.envs.utils import gate_passed, load_track
+from lsy_drone_racing.envs.utils import gate_passed, load_gate_order, load_track
 from lsy_drone_racing.utils.ros import track_poses
 from lsy_drone_racing.utils.ros_race_comm import RaceCommNode, calibrate_clock
 
@@ -89,6 +89,7 @@ class RealMultiDroneRaceEnvClient(Env):
 
         self.gates, self.obstacles, self.drones_track = load_track(track)
         self.n_gates = len(self.gates.pos)
+        self.gate_sequence, self.gate_sequence_direction = load_gate_order(track, self.n_gates)
         self.n_obstacles = len(self.obstacles.pos)
         self.pos_limit_low = np.array(track.safety_limits["pos_limit_low"])
         self.pos_limit_high = np.array(track.safety_limits["pos_limit_high"])
@@ -199,19 +200,22 @@ class RealMultiDroneRaceEnvClient(Env):
         self.data.gates_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
+        
+        # Allow for different gate ordering
+        gate_ids = self.gate_sequence[self.data.n_gates_passed]
+        gate_reverse = self.gate_sequence_direction[self.data.n_gates_passed] < 0
+        gate_pos = self.gates.pos[gate_ids]
+        gate_quat = self.gates.quat[gate_ids]
 
-        gate_pos = self.gates.pos[self.data.target_gate]
-        gate_quat = self.gates.quat[self.data.target_gate]
         with jax.default_device(self.device):
             passed = gate_passed(
-                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, (0.45, 0.45)
+                drone_pos, self.data.last_drone_pos, gate_pos, gate_quat, gate_reverse, (0.45, 0.45)
             )
-        self.data.target_gate += np.asarray(passed)
-        self.data.target_gate[self.data.target_gate >= self.n_gates] = -1
+        self.data.n_gates_passed = self.data.n_gates_passed + np.asarray(passed)
         self.data.last_drone_pos[...] = drone_pos
         self.data.taken_off |= drone_pos[self.rank, 2] > 0.1
 
-        terminated = bool(self.data.target_gate[self.rank] == -1)
+        terminated = bool(self.data.n_gates_passed[self.rank] >= len(self.gate_sequence))
 
         within_bound = np.all(
             (drone_pos[self.rank] >= self.pos_limit_low)
@@ -248,7 +252,13 @@ class RealMultiDroneRaceEnvClient(Env):
             "quat": drone_quat,
             "vel": drone_vel,
             "ang_vel": drone_ang_vel,
-            "target_gate": self.data.target_gate,
+            "n_gates_passed": self.data.n_gates_passed,
+            "gate_sequence": np.broadcast_to(
+                self.gate_sequence, (self.n_drones, len(self.gate_sequence))
+            ),
+            "gate_sequence_direction": np.broadcast_to(
+                self.gate_sequence_direction, (self.n_drones, len(self.gate_sequence))
+            ),
             "gates_pos": gates_pos,
             "gates_quat": gates_quat,
             "gates_visited": self.data.gates_visited,
@@ -258,8 +268,12 @@ class RealMultiDroneRaceEnvClient(Env):
 
     def info(self) -> dict:
         """Return the info dictionary."""
-        target_gate = int(self.data.target_gate[self.rank])
-        return {"rank": self.rank, "target_gate": target_gate, "finished_track": target_gate == -1}
+        n_gates_passed = int(self.data.n_gates_passed[self.rank])
+        return {
+            "rank": self.rank,
+            "n_gates_passed": n_gates_passed,
+            "finished_track": n_gates_passed >= len(self.gate_sequence),
+        }
 
     def close(self):
         """Send a final stop message and close all ROS connections."""
@@ -303,9 +317,8 @@ class RealMultiDroneRaceEnvClient(Env):
         """Open ROS connector for own drone (estimator) and others (TF)."""
         other_names = [n for i, n in enumerate(self.drone_names) if i != self.rank]
         self._ros_connector = ROSConnector(
-            estimator_names=[self.drone_name],
+            estimator_names=self.drone_names,
             cmd_topic=f"/drones/{self.drone_name}/command",
-            tf_names=other_names,
             timeout=10.0,
         )
 
@@ -359,4 +372,6 @@ class RealMultiDroneRaceEnvClient(Env):
             else:
                 pos[i] = self._ros_connector.pos.get(name, np.nan)
                 quat[i] = self._ros_connector.quat.get(name, np.nan)
+                vel[i] = self._ros_connector.vel.get(name, np.nan)
+                ang_vel[i] = self._ros_connector.ang_vel.get(name, np.nan)
         return pos, quat, vel, ang_vel
