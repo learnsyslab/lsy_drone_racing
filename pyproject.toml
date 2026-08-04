@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
 ]
 
-
 ########################
 # Pip Dependencies
 ########################
@@ -29,7 +28,7 @@ dependencies = ["fire >= 0.6.0", "numpy", "toml >= 0.10.2"]
 sim = [
     "gymnasium[array-api] >= 1.2.0",
     "ml-collections >= 1.0",
-    "packaging >= 24.0",
+    "packaging >= 24.0, <26",
     "drone-models",
     "drone-controllers",
     "crazyflow>=0.1.0",
@@ -67,12 +66,14 @@ platforms = ["linux-64"]
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
+packaging = ">=24,<26"
 ruff = "*"
 # Compilers needed for acados
 compilers = ">=1.9.0, <1.11.0"
 cmake = "==3.26.0"  # Pinned for motion_capture_tracking
 make = "==4.4.1"  # Pinned for motion_capture_tracking
 openblas = ">=0.3.30,<0.4"
+lark = ">=1.3.1"  # Pinned to suppress deprecation warning
 
 [tool.pixi.pypi-dependencies]
 lsy_drone_racing = { path = ".", editable = true }
@@ -102,15 +103,23 @@ channels = ["https://prefix.dev/robostack-kilted"]
 # Build tools
 pkg-config = "*"
 ninja = "*"
+libboost-devel = ">=1.86,<1.87"
 # ROS specific tools
 rosdep = "*"
 colcon-common-extensions = "*"
 # Kilted specific tools
 ros-kilted-desktop = "*"
 ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
+ros-kilted-rmw-zenoh-cpp = "*"
 
 [tool.pixi.feature.kilted.activation]
 scripts = ["tools/setup_mocap.sh"]
+env = { RMW_IMPLEMENTATION = "rmw_zenoh_cpp", ZENOH_ROUTER_CHECK_ATTEMPTS = "-1" }
+
+[tool.pixi.feature.kilted.tasks.zenoh-router]
+# To use ROS with Zenoh backend, a router is mandatory
+cmd = "ros2 run rmw_zenoh_cpp rmw_zenohd"
+description = "Run the Zenoh router on the host machine"
 
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
@@ -169,6 +178,7 @@ exclude = [
     ".vscode",
     "__pypackages__",
     "_build",
+    "acados",
     "build",
     "dist",
     "site-packages",

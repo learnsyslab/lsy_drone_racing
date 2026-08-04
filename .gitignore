@@ -20,5 +20,9 @@ site/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
-ros_ws/
-acados/
+# ROS2 workspace build artifacts
+ros_ws/src/motion_capture_tracking
+ros_ws/build
+ros_ws/install
+ros_ws/log
+acados/**
