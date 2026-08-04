@@ -29,7 +29,7 @@ dependencies = [
     "gymnasium[array-api] >= 1.2.0",
     "ml-collections >= 1.0",
     "packaging >= 24.0",
-    "crazyflow>=0.2.1,<0.4",
+    "crazyflow>=0.2.1,<0.3",
     "jax >= 0.7",
     "warp-lang",
 ]
