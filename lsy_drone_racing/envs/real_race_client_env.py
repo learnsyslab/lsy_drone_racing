@@ -200,12 +200,12 @@ class RealMultiDroneRaceEnvClient(Env):
         self.data.gates_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
         dpos = drone_pos[:, None, :2] - self.obstacles.pos[None, :, :2]
         self.data.obstacles_visited |= np.linalg.norm(dpos, axis=-1) < self.sensor_range
-        
+
         # Allow for different gate ordering
-        gate_ids = self.gate_sequence[self.data.n_gates_passed]
-        gate_reverse = self.gate_sequence_direction[self.data.n_gates_passed] < 0
-        gate_pos = self.gates.pos[gate_ids]
-        gate_quat = self.gates.quat[gate_ids]
+        gate_id = self.gate_sequence[self.data.n_gates_passed[self.rank]]
+        gate_reverse = self.gate_sequence_direction[self.data.n_gates_passed[self.rank]] < 0
+        gate_pos = self.gates.pos[gate_id]
+        gate_quat = self.gates.quat[gate_id]
 
         with jax.default_device(self.device):
             passed = gate_passed(
