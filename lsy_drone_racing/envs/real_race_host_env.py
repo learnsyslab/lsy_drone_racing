@@ -550,11 +550,16 @@ class CrazyflieRealRaceHost:
             self._publish_host_state(host_ready=True, race_started=True, race_finished=True)
         if self._init_barrier is not None:
             self._init_barrier.abort()
-        for process, return_event in zip(
-            self._processes, self._return_to_start_events, strict=False
-        ):
-            if process.is_alive() and return_event.is_set():
-                process.join(timeout=15)
+        if all(self._clients_stopped.values()):
+            for process in self._processes:
+                if process.is_alive():
+                    process.join(timeout=15)
+        else:
+            for process, return_event in zip(
+                self._processes, self._return_to_start_events, strict=False
+            ):
+                if process.is_alive() and return_event.is_set():
+                    process.join(timeout=15)
 
         if self._stop_event is not None:
             self._stop_event.set()
