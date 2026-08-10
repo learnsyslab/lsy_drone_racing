@@ -113,7 +113,7 @@ scripts = ["tools/setup_mocap.sh"]
 
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
-mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
+mocap = { cmd = "bash tools/launch_mocap.sh", description = "Launch mocap tracking, nominal frame publisher, and RViz" }
 estimator = { cmd = "python -m drone_estimators.ros_nodes.ros2_node --drone_name {{ drone_name }}", args = [
   { arg = "drone_name" },
 ], description = "Start the drone state estimator" }
