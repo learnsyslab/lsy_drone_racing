@@ -10,6 +10,7 @@ publisher_pid=$!
 
 ros2 run motion_capture_tracking motion_capture_tracking_node \
   --ros-args \
+  --remap __node:=motion_capture_tracking \
   --params-file ros_ws/src/motion_capture_tracking/motion_capture_tracking/config/cfg.yaml &
 tracking_pid=$!
 
