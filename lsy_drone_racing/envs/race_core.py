@@ -502,6 +502,7 @@ class RaceCoreEnv:
         """Build a function that resets the environment data and simulation data."""
         sim_reset_fn = self.sim.build_reset_fn()
         default_sim_data = self.sim.default_data
+        device = self.settings.device
         randomize_track = build_track_randomization_fn(
             self.settings.randomizations, track=self.track
         )
@@ -512,7 +513,7 @@ class RaceCoreEnv:
         ) -> tuple[EnvData, tuple[dict[str, Array], dict]]:
             sim_data = data.sim_data
             if seed is not None:
-                sim_data = seed_sim(sim_data, seed, sim_data.core.device)
+                sim_data = seed_sim(sim_data, seed, device)
             key, subkey = jax.random.split(sim_data.core.rng_key, 2)
             sim_data = sim_data.replace(core=sim_data.core.replace(rng_key=key))
             # Randomization of the drone is compiled into the sim reset pipeline, so we don't need
