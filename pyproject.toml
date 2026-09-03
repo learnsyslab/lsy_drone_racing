@@ -68,6 +68,8 @@ platforms = ["linux-64", "osx-arm64"]
 python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
 pre-commit = "*"
+packaging = ">=24"
+pygments = "*"
 ruff = "*"
 # Compilers needed for acados
 compilers = ">=1.9.0, <1.11.0"
