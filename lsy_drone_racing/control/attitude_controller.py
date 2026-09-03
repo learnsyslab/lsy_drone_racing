@@ -63,10 +63,12 @@ class AttitudeController(Controller):
                 [-1.2, -0.1, 0.8],
                 [-1.2, -0.1, 1.2],
                 [-0.0, -0.7, 1.2],
-                [0.5, -0.75, 1.2],
+                [1.2, -0.15, 1.2],
+                [1.05, 0.75, 1.2],
+                [0.25, 1.25, 1.2],
             ]
         )
-        self._t_total = 18  # s
+        self._t_total = 22.5  # s
         t = np.linspace(0, self._t_total, len(waypoints))
         self._des_pos_spline = CubicSpline(t, waypoints)
         self._des_vel_spline = self._des_pos_spline.derivative()

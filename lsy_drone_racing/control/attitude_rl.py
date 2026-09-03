@@ -51,7 +51,7 @@ class AttitudeRL(Controller):
         # Set trajectory parameters
         self.n_samples = 10
         self.samples_dt = 0.1
-        self.trajectory_time = 15.0
+        self.trajectory_time = 18.75
         self.sample_offsets = np.array(
             np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
         )
@@ -70,7 +70,9 @@ class AttitudeRL(Controller):
                 [-1.2, -0.2, 0.8],
                 [-1.2, -0.2, 1.2],
                 [-0.0, -0.7, 1.2],
-                [0.5, -0.75, 1.2],
+                [1.2, -0.15, 1.2],
+                [1.05, 0.75, 1.2],
+                [0.25, 1.25, 1.2],
             ]
         )
         # Generate spline trajectory
