@@ -13,16 +13,17 @@ if [ ! -f ${PIXI_PROJECT_ROOT}/pixi.lock ]; then
   exit 0
 fi
 
+# Set platform-specific variables so the script runs on Linux and macOS.
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64)
     LIB_EXT="so"
-    PARALLEL_JOBS="$(nproc)"
+    CPU_COUNT="$(nproc)"
     T_RENDERER_URL="https://github.com/acados/tera_renderer/releases/download/v0.0.34/t_renderer-v0.0.34-linux"
     CMAKE_PLATFORM_ARGS=()
     ;;
   Darwin-arm64)
     LIB_EXT="dylib"
-    PARALLEL_JOBS="$(sysctl -n hw.ncpu)"
+    CPU_COUNT="$(sysctl -n hw.ncpu)"
     T_RENDERER_URL="https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-osx-arm64"
     CMAKE_PLATFORM_ARGS=(-DBLASFEO_TARGET=ARMV8A_APPLE_M1)
     ;;
@@ -58,7 +59,7 @@ if [ ! -f ${ACADOS_DIR}/lib/libacados.${LIB_EXT} ]; then
   (
     cd ${ACADOS_DIR}/build
     cmake -DACADOS_WITH_QPOASES=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 "${CMAKE_PLATFORM_ARGS[@]}" ..
-    make install -j"$PARALLEL_JOBS"
+    make install -j"$CPU_COUNT"
   )
 fi
 
