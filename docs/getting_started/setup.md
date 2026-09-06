@@ -266,6 +266,49 @@ export LIBGL_ALWAYS_INDIRECT=1
 python scripts/sim.py -r
 ```
 
+### Native Windows 10/11 (x86-64)
+
+Supports CPU simulation, MuJoCo visualization, and acados MPC without WSL or Docker.
+
+**Installation and Setup**
+
+1. Install tools
+
+    Open PowerShell and check `winget --version`. If unavailable, install **App Installer**
+    from the Microsoft Store ([instructions](https://learn.microsoft.com/en-us/windows/package-manager/winget/#install-winget)). Then run:
+
+    ```powershell
+    winget install --exact --id Git.Git
+    winget install --exact --id prefix-dev.pixi
+    winget install --exact --id Microsoft.VCRedist.2015+.x64
+    ```
+
+    Download a **Win64/x86_64 GCC release ZIP (UCRT, POSIX)** from
+    [WinLibs](https://winlibs.com/#download-release). Extract `mingw64` to
+    `C:\tools\mingw64`, then add `C:\tools\mingw64\bin` to your user **Path** under
+    **Edit environment variables for your account**. Reopen PowerShell and verify:
+
+    ```powershell
+    git --version
+    pixi --version
+    gcc -dumpmachine          # Expected: x86_64-w64-mingw32
+    g++ --version
+    mingw32-make --version
+    ```
+
+    Pixi installs Python and CMake automatically. Visualization requires an OpenGL-capable graphics driver.
+
+2. Clone and install
+
+    Clone your forked course repo and install the environment:
+
+    ```powershell
+    git clone https://github.com/learnsyslab/lsy_drone_racing.git
+    cd .\lsy_drone_racing
+    pixi install
+    ```
+This activates the Pixi environment with all required dependencies installed. You should now be ready to develop with Windows.
+
 ### Dev Container (Windows 11 WSL2)
 
 For Windows, you require WSL2 to run the dev container, which enables a Linux environment within Windows. Follow these steps to set up the dev container in VS Code with WSL2:
