@@ -62,7 +62,7 @@ markers = ["unit", "integration"]
 ########################
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
@@ -71,17 +71,26 @@ pre-commit = "*"
 packaging = ">=24"
 pygments = "*"
 ruff = "*"
+
+[tool.pixi.target.unix.dependencies]
 # Compilers needed for acados
 compilers = ">=1.9.0, <1.11.0"
 cmake = "==3.26.0"  # Pinned for motion_capture_tracking
 make = "==4.4.1"  # Pinned for motion_capture_tracking
 openblas = ">=0.3.30,<0.4"
 
+[tool.pixi.target.win-64.dependencies]
+cmake = "==3.26.0"
+
 [tool.pixi.pypi-dependencies]
 lsy_drone_racing = { path = ".", editable = true }
 
-[tool.pixi.feature.sim.activation]
+# Platform-specific acados setup.
+[tool.pixi.feature.sim.target.unix.activation]
 scripts = ["tools/setup_acados.sh"]
+
+[tool.pixi.feature.sim.target.win-64.activation]
+scripts = ["tools/setup_acados.bat"]
 
 [tool.pixi.feature.gpu]
 platforms = ["linux-64"]
