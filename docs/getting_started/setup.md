@@ -49,7 +49,7 @@ Start by forking the [lsy_drone_racing](https://github.com/learnsyslab/lsy_drone
 
 If you're new to GitHub, refer to the [GitHub documentation on forking](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo).
 
-### Setting up your environment
+### Setting up your environment (Ubuntu or macOS)
 
 #### Pixi package manager (Recommended)
 
@@ -83,7 +83,6 @@ You may also use  with [micromamba](https://mamba.readthedocs.io/en/latest/insta
 
 #### Docker (Not recommended)
 
-We also provide a dev container for the simulation environment. However, this is not recommended, since it's heavy and only supports software rendering at the moment. If you're using Windows, make sure to install [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) and [Docker Desktop](https://docs.docker.com/desktop/windows/install/) with WSL integration. Refer to the `Using Docker` section below for more details.
 
 #### Simulation & Hardware on our Lab PC (If Necessary)
 
@@ -264,9 +263,8 @@ However, rendering might not work out of the box. To enable software rendering, 
 ```bash
 export LIBGL_ALWAYS_INDIRECT=1
 python scripts/sim.py -r
-```
 
-### Native Windows 10/11 (x86-64)
+### Native Windows 10/11 (x86-64, not recommended)
 
 Supports CPU simulation, MuJoCo visualization, and acados MPC without WSL or Docker.
 
@@ -339,7 +337,6 @@ For Windows, you require WSL2 to run the dev container, which enables a Linux en
     pixi shell
     ```
 
-This activates the Pixi environment with all required dependencies installed. You should now be ready to develop with the dev container!
 
 ## Common errors
 
