@@ -1,5 +1,5 @@
 @echo off
-rem Native Windows setup, called by Pixi through cmd.exe. No PowerShell required.
+rem Native Windows setup
 setlocal EnableExtensions DisableDelayedExpansion
 if not defined PIXI_PROJECT_ROOT goto :not_in_pixi
 if not defined CONDA_PREFIX goto :not_in_pixi
