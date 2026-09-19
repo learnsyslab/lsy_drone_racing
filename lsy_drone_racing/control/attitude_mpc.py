@@ -9,11 +9,13 @@ Note that the trajectory uses pre-defined waypoints instead of dynamically gener
 
 from __future__ import annotations  # Python 3.10 type hints
 
+import os
 from typing import TYPE_CHECKING
 
 import numpy as np
 import scipy
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
+from acados_template.builders import ocp_get_default_cmake_builder
 from crazyflow.drones import load_params as load_hardware_params
 from crazyflow.dynamics.core import load_params as load_dynamics_params
 from crazyflow.dynamics.so_rpy import dynamics, symbolic_dynamics_euler
@@ -154,12 +156,20 @@ def create_ocp_solver(
     # set prediction horizon
     ocp.solver_options.tf = Tf
 
+    cmake_builder = None
+    # On Windows, use CMake with MinGW to build the generated MPC solver DLL.
+    if os.name == "nt":
+        cmake_builder = ocp_get_default_cmake_builder()
+        cmake_builder.generator = "MinGW Makefiles"
+        cmake_builder.build_dir = "build-mingw"
+
     acados_ocp_solver = AcadosOcpSolver(
         ocp,
         json_file="c_generated_code/lsy_example_mpc.json",
         verbose=verbose,
         build=True,
         generate=True,
+        cmake_builder=cmake_builder,
     )
 
     return acados_ocp_solver, ocp

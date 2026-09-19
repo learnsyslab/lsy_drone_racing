@@ -6,10 +6,9 @@ This guide will walk you through the process of setting up the LSY Autonomous Dr
 
 Before you begin, ensure you have the following:
 
-- Git installed on your system
-- A GitHub account
-- A [Robostack](https://robostack.github.io/index.html/) environment with [pixi running ROS2 Jazzy](https://robostack.github.io/GettingStarted.html#__tabbed_1_3/).
-- Optional: [Docker](https://docs.docker.com/) installed on your system
+- [Git](https://git-scm.com/install/) installed on your system
+- A [GitHub](https://github.com/) account
+- A [Robostack](https://robostack.github.io/index.html/) environment with [pixi running ROS2 Jazzy](https://robostack.github.io/GettingStarted.html#__tabbed_1_3/)（automatically installed during the deployment setup below）
 
 !!! note
     You can also use [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html) or other dependency management tools, but we won't cover them here in full detail.
@@ -57,10 +56,17 @@ We recommend using [Pixi](https://pixi.sh) to manage dependencies  and virtual e
 
 Install Pixi:
 
-```bash
-curl -fsSL https://pixi.sh/install.sh | sh
-```
+=== "Linux & macOS"
 
+    ```bash
+    curl -fsSL https://pixi.sh/install.sh | sh
+    ```
+
+=== "Windows"
+
+    ```powershell
+    powershell -ExecutionPolicy Bypass -c "irm -useb https://pixi.sh/install.ps1 | iex"
+    ```
 To activate the environment, simply run
 
 ```bash
@@ -70,7 +76,7 @@ pixi shell -e <environment_name>
 ```
 
 !!! note
-    To leave a pixi shell, press **ESC** or **Ctrl+D**. Make sure to leave the shell before you activate another shell.
+    To leave a pixi shell, run `exit` or press **Ctrl+D**. Make sure to leave the shell before you activate another shell.
 
 On the first invocation, Pixi will automatically resolve and install all required dependencies.
 
@@ -81,11 +87,7 @@ On the first invocation, Pixi will automatically resolve and install all require
 
 You may also use  with [micromamba](https://mamba.readthedocs.io/en/latest/installation/micromamba-installation.html). We do not recommend this, since Mamba/Conda environments have the tendency to be leaky and share some system-wide packages. In our experience, this will lead to problems, which is why this project is optimized to use with pixi. If you want to use micromamba anyway, we can't guarantee support.
 
-#### Docker (Not recommended)
-
-We also provide a dev container for the simulation environment. However, this is not recommended, since it's heavy and only supports software rendering at the moment. If you're using Windows, make sure to install [WSL](https://docs.microsoft.com/en-us/windows/wsl/install) and [Docker Desktop](https://docs.docker.com/desktop/windows/install/) with WSL integration. Refer to the `Using Docker` section below for more details.
-
-#### Simulation & Hardware on our Lab PC (If Necessary)
+#### Simulation & Hardware on our Lab PC 
 
 We provide a Workstation in the Lab on which you are allowed to run your controllers during deployment. Please create a new user for each team and follow the instructions below.
 
@@ -95,15 +97,38 @@ If you only want to run the simulation, you can use your favorite conda/mamba/ve
 
 ### Installation
 
+#### Supported platforms and environments
+
+| Pixi environment | Purpose | Ubuntu (x86-64) | macOS (Apple Silicon) | Windows (x86-64, native) |
+| --- | --- | --- | --- | --- |
+| `default` | CPU simulation and controller development | Yes | Yes | Yes |
+| `deploy` | Real-drone deployment with ROS 2 | Yes | No | No |
+| `gpu` | CUDA simulation | Yes | No | No |
+| `tests` | Tests | Yes | Yes | Yes |
+| `gpu-tests` | Tests with CUDA | Yes | No | No |
+| `docs` | Build and preview documentation | Yes | Yes | Yes |
+
+Use `default` for simulation and `deploy` for real-drone deployment. Follow the installation steps below to set up the appropriate environment.
+
 #### Clone repository
 
 First, clone your fork from your own account and create a new environment by running
 
-```bash
-mkdir -p ~/repos && cd repos
-git clone https://github.com/<YOUR-USERNAME>/lsy_drone_racing.git
-cd lsy_drone_racing
-```
+=== "Linux & macOS"
+
+    ```bash
+    mkdir -p ~/repos && cd repos
+    git clone https://github.com/<YOUR-USERNAME>/lsy_drone_racing.git
+    cd lsy_drone_racing
+    ```
+
+=== "Windows"
+
+    ```powershell
+    mkdir "$HOME\repos" -Force
+    cd "$HOME\repos"
+    git clone https://github.com/<YOUR-USERNAME>/lsy_drone_racing.git
+    cd lsy_drone_racing
 
 #### Install simulation environment (developing & testing controllers)
 
@@ -119,7 +144,7 @@ pixi shell
 !!! note
     By running the commands above, our automated scripts will install and activate **acados** by default. This might cause the terminal to freeze for several minutes. [Acados](https://docs.acados.org/index.html) is an Optimal Control Framework that can be used to control the quadrotor using a Model Predictive Controller. If something does not work out of the box, we refer the reader to the [official installation guide](https://docs.acados.org/installation/).
 
-To speed up simulation with GPU (optional), run:
+(Optional, Ubuntu Only)To speed up simulation with GPU , run:
 
 ```bash
 pixi shell -e gpu
@@ -129,12 +154,12 @@ Finally, you can test if the installation was successful by running
 
 ```bash
 cd ~/repos/lsy_drone_racing
-python scripts/sim.py -r
+python scripts/sim.py
 ```
 
 If everything is installed correctly, this opens the simulator and simulates a drone flying through four gates.
 
-(Optional) If you want to train RL policies, we recommend using a GPU-enabled environment for optimal performance. To install additional dependencies including [PyTorch](https://pytorch.org/) and [Wandb](https://wandb.ai/), stay in the gpu shell and run:
+(Optional, Ubuntu Only) If you want to train RL policies, we recommend using a GPU-enabled environment for optimal performance. To install additional dependencies including [PyTorch](https://pytorch.org/) and [Wandb](https://wandb.ai/), stay in the gpu shell and run:
 
 ```bash
 pip install -e .[rl]
@@ -154,7 +179,7 @@ cd ~/repos/lsy_drone_racing
 pytest tests
 ```
 
-#### Install deployment environment (deploy controller to real drones)
+#### Install deployment environment (deploy controller to real drones, Ubuntu Only)
 
 This is for the deployment in the lab, either on your own machine or on the lab PC. With a fresh terminal, stay in the repository and run:
 
@@ -201,13 +226,13 @@ sudo udevadm trigger
 Now you are ready to deploy your controller on real drones. First, run the motion capture tracking node. If there are valid elements in the motion capture area, you should be able to see them in the rviz window.
 
 ```bash
-ros2 launch motion_capture_tracking launch.py
+pixi run mocap
 ```
 
 Second, start another deploy shell and run the estimator node. Please check the actual DEC number on the drone, or the name shown in rviz. If this works, you should be able to see frequency information in terminal.
 
 ```bash
-python -m drone_estimators.ros_nodes.ros2_node --drone_name cf10
+pixi run estimator cf01
 ```
 
 Lastly, run the deployment script with the correct configuration and controller.
@@ -218,8 +243,6 @@ python scripts/deploy.py --config level2.toml --controller <your_controller.py>
 
 !!! note
     Be careful when flying the drone! Make sure to kill the process (**Ctrl+C**) immediately when your controller is unstable.
-
-### Development
 
 #### Work on Existing Dependencies
 
@@ -244,7 +267,7 @@ We want to encourage you to use other libraries to speed up your development pro
 !!! warning
     If your controller depends on additional libraries, which are installed locally with pip, the tests and evaluation on GitHub won't work.
 
-To properly add a package to your project, you can either add it tot the `pyproject.toml` file in the root of the repository, or run the following command while being in the correct pixi environment:
+To properly add a package to your project, you can either add it to the `pyproject.toml` file in the root of the repository, or run the following command while being in the correct pixi environment:
 
 ```bash
 pixi add <package_name>
@@ -254,49 +277,6 @@ After that, reopen your environment. This automatically adds the package to the 
 
 !!! note
     Changing the `pyproject.toml` will also update the `pixi.lock` file, which pins the exact versions of all packages. Make sure to commit both files to your repository, otherwise the tests on GitHub will fail.
-
-### Windows Subsystem for Linux (WSL2)
-
-It is also possible to develop the project on Windows using WSL2. Clone this project into the WSL2 file system, and follow the same instructions as for Linux.
-
-However, rendering might not work out of the box. To enable software rendering, set the following environment variable in your WSL2 terminal:
-
-```bash
-export LIBGL_ALWAYS_INDIRECT=1
-python scripts/sim.py -r
-```
-
-### Dev Container (Windows 11 WSL2)
-
-For Windows, you require WSL2 to run the dev container, which enables a Linux environment within Windows. Follow these steps to set up the dev container in VS Code with WSL2:
-
-**Installation and Setup**
-
-1. Follow the [official VS Code Dev Containers installation steps](https://code.visualstudio.com/docs/devcontainers/tutorial) to install VS Code Dev Containers in WSL2 and Docker.
-
-    - Make sure to install Ubuntu 22.04 or above in WSL2.
-    - If you didn't get prompted to enable WSL integration by Docker during installation, open Docker Desktop settings and manually enable WSL integration. **Important:** There are TWO setting options for this. Make sure to enable BOTH!
-
-2. Clone this project into the WSL2 file system (e.g., `/home/~`) rather than the Windows file system. You can access the WSL filesystem by opening a WSL2/Ubuntu terminal. Performance is significantly better when working on the WSL file system compared to the Windows file system.
-
-3. Verify dev container configuration:
-
-    - Check the dev container configuration file `.devcontainer/devcontainer.json`.
-    - Comment out/Uncomment the necessary settings.
-
-4. Open the project in VS Code:
-
-    - Select **File → Open Folder** and navigate to your project directory in WSL.
-    - VS Code should automatically detect the dev container and prompt you to **Reopen in Container**. If not, see the [official instructions](https://code.visualstudio.com/docs/devcontainers/tutorial#_open-the-folder-in-a-container) on how to open it manually.
-    - Make sure to have the **Dev Containers** extension and **Container Tools** extension installed.
-
-5. Once the container has opened, initialize the environment by opening a terminal and running:
-
-    ```bash
-    pixi shell
-    ```
-
-This activates the Pixi environment with all required dependencies installed. You should now be ready to develop with the dev container!
 
 ## Common errors
 
@@ -331,6 +311,28 @@ No plugins found, falling back on no decorations
 ```
 
 Note that starting the simulation with `-r` from a terminal inside VSCode might cause this warning. This will cause your window to not have any decorations (close, minimize, maximize buttons). You can safely ignore this warning. If you want to get rid of it, start the simulation from a regular terminal outside of VSCode.
+
+### PowerShell script execution is disabled (Windows only)
+
+If `pixi shell` fails with an error like:
+
+```text
+File ...\Temp\tmp....ps1 cannot be loaded because running scripts is disabled on this system.
+```
+
+PowerShell's `Restricted` execution policy blocks the temporary script that Pixi uses
+to activate the environment. Check the policy and allow local scripts for the current
+session, then retry:
+
+```powershell
+Get-ExecutionPolicy
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned -Force
+pixi shell
+```
+
+This change requires no administrator privileges and applies only to the current
+PowerShell session and its child processes. It expires when they are closed and does
+not permanently change the user or system execution policy.
 
 ## Next Steps
 
