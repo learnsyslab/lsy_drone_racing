@@ -34,7 +34,7 @@ python scripts/nominal_frame_publisher.py --config level2.toml
 ```  
 Now you need to add the MarkerArray to RVIZ as follows:
 <div align="center">
-  <img src="../../img/rviz_setup.gif" alt="LSY ADR" width="600"/>
+  <img src="../../img/rviz_setup.png" alt="RVIZ SETUP" width="600"/>
 </div>
 
 ## Deploying Your Controller

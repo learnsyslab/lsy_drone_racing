@@ -68,7 +68,6 @@ platforms = ["linux-64", "osx-arm64", "win-64"]
 python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
 packaging = ">=24"
-typing_extensions = "*" # Keep Conda/PyPI resolution consistent across the shared solve group.
 pygments = "*"
 ruff = "*"
 
@@ -155,7 +154,8 @@ rust = ">=1.95.0,<1.96"
 [tool.pixi.feature.tests.tasks]
 tests = { cmd = "pytest -v tests", description = "Run tests" }
 
-[tool.pixi.feature.tests.dependencies]
+# Use PyPI pytest to avoid Conda-only transitive dependencies leaking across the solve group.
+[tool.pixi.feature.tests.pypi-dependencies]
 pytest = "*"
 
 [tool.pixi.feature.profile.dependencies]
