@@ -13,7 +13,7 @@ As mentioned in the [Installation and Setup](../getting_started/setup.md) sectio
 
 ```bash
 pixi shell -e deploy
-ros2 launch motion_capture_tracking launch.py
+pixi run mocap
 ```
 
 !!! warning
@@ -23,8 +23,19 @@ The second terminal is used to launch the estimator for the drone. If you want t
 
 ```bash
 pixi shell -e deploy
-python -m drone_estimators.ros_nodes.ros2_node --drone_name cf52
+pixi run estimator cf52
 ```
+
+## Setting up the Track 
+We provide a script that can help you set up the track. It will publish the nominal positions and orientations of the gates, obstacles and drones to RVIZ as MarkerArray.
+```bash
+pixi shell -e deploy
+python scripts/nominal_frame_publisher.py --config level2.toml
+```  
+Now you need to add the MarkerArray to RVIZ as follows:
+<div align="center">
+  <img src="../../img/rviz_setup.gif" alt="LSY ADR" width="600"/>
+</div>
 
 ## Generating Tracks for Level 3 Deployment
 

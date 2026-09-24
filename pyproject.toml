@@ -67,8 +67,8 @@ platforms = ["linux-64", "osx-arm64"]
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
 pip = ">=25.0.1,<26"
-pre-commit = "*"
 packaging = ">=24"
+typing_extensions = "*" # Keep Conda/PyPI resolution consistent across the shared solve group.
 pygments = "*"
 ruff = "*"
 # Compilers needed for acados
@@ -121,7 +121,7 @@ scripts = ["tools/setup_mocap.sh"]
 
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
-mocap = { cmd = "bash tools/launch_mocap.sh", description = "Launch mocap tracking, nominal frame publisher, and RViz" }
+mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
 estimator = { cmd = "python -m drone_estimators.ros_nodes.ros2_node --drone_name {{ drone_name }}", args = [
   { arg = "drone_name" },
 ], description = "Start the drone state estimator" }

@@ -9,6 +9,8 @@ from pathlib import Path
 
 os.environ["SCIPY_ARRAY_API"] = "1"
 
+import argparse
+
 import rclpy
 from geometry_msgs.msg import TransformStamped
 from rclpy.node import Node
@@ -205,8 +207,12 @@ class NominalFramePublisherNode(Node):
 
 def main():
     """Run the nominal frame publisher node."""
-    rclpy.init()
-    node = NominalFramePublisherNode()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="level2.toml")
+    args, ros_args = parser.parse_known_args()
+
+    rclpy.init(args=ros_args)
+    node = NominalFramePublisherNode(config_name=args.config)
     try:
         rclpy.spin(node)
     finally:
