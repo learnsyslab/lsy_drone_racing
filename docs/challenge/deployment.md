@@ -26,6 +26,17 @@ The second terminal is used to launch the estimator for the drone. If you want t
 pixi run -e deploy estimator cf01
 ```
 
+## Setting up the Track 
+We provide a script that can help you set up the track. It will publish the nominal positions and orientations of the gates, obstacles and drones to RVIZ as MarkerArray.
+```bash
+pixi shell -e deploy
+python scripts/nominal_frame_publisher.py --config level2.toml
+```  
+Now you need to add the MarkerArray to RVIZ as follows:
+<div align="center">
+  <img src="../../img/rviz_setup.gif" alt="LSY ADR" width="600"/>
+</div>
+
 ## Deploying Your Controller
 
 To deploy your controller on the real drone, use the deployment script in the `lsy_drone_racing/scripts` folder. Place the drone on its start position, power it on, and launch the estimators.
