@@ -8,9 +8,9 @@ submissions = 1
 [ta2]
 name = "Marcel (TA)"
 github = "ratheron"
-time = 28.06125
-success_rate = 0.8
-submissions = 5
+time = 27.63090909090909
+success_rate = 0.55
+submissions = 6
 
 [ta3]
 name = "Radu (TA)"
