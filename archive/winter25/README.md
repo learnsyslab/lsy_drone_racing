@@ -1,6 +1,6 @@
-# 🏁 LSY Drone Racing - Winter 2025 Leaderboard
+# 🏁 LSY Drone Racing - Winter 2025/26 Leaderboard
 
-Welcome to the archived leaderboard for the WS25 Autonomous Drone Racing project course at TUM!
+Welcome to the archived leaderboard for the WS25/26 Autonomous Drone Racing project course at TUM!
 
 | Rank  | Team                   | Time     |
 | :---: | :--------------------- | :------- |
