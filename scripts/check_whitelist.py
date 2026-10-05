@@ -1,6 +1,9 @@
+"""Script to check if the GitHub username is whitelisted in leaderboard.toml."""
+
 import sys
-import toml
 from pathlib import Path
+
+import toml
 
 actor = sys.argv[1]
 toml_file = Path("scripts/leaderboard.toml")
@@ -17,5 +20,8 @@ if authorized:
     print(f"✅ User '{actor}' authorized. Proceeding...")
     sys.exit(0)
 else:
-    print(f"🛑 Unauthorized: User '{actor}' is not registered in leaderboard.toml.")
+    print(
+        "::error title=Not whitelisted::🛑 Unauthorized: "
+        + f"User '{actor}' is not registered in leaderboard.toml."
+    )
     sys.exit(1)
