@@ -119,6 +119,15 @@ ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 [tool.pixi.feature.kilted.activation]
 scripts = ["tools/setup_mocap.sh"]
 
+[tool.pixi.feature.kilted.activation.env]
+# Use Zenoh as ROS 2 middleware with multicast discovery across machines
+RMW_IMPLEMENTATION = "rmw_zenoh_cpp"
+ZENOH_ROUTER_CHECK_ATTEMPTS = "-1"  # Do not check for a router when a node starts
+ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
+
+[tool.pixi.feature.kilted.tasks]
+zenoh-router = { cmd = "ros2 run rmw_zenoh_cpp rmw_zenohd", description = "Run a Zenoh router (only needed when multicast is unavailable)" }
+
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
 mocap = { cmd = "bash tools/launch_mocap.sh", description = "Launch mocap tracking, nominal frame publisher, and RViz" }
