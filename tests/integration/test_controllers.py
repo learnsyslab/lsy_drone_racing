@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 import gymnasium
@@ -119,4 +120,53 @@ def test_trajectory_controller_finish(yaw: float, dynamics: Dynamics):
             break
     assert obs["n_gates_passed"] == obs["gate_sequence"].shape[0], (
         "Trajectory controller failed to complete the track"
+    )
+
+
+@pytest.mark.integration
+def test_multi_drone_controllers():
+    """Test if the multi-drone example controllers complete the track together."""
+    config = load_config(Path(__file__).parents[2] / "config/multi_level0.toml")
+    control_path = Path(__file__).parents[2] / "lsy_drone_racing/control"
+    ctrl_classes = [load_controller(control_path / ctrl["file"]) for ctrl in config.controller]
+    ctrl_freqs = np.array([kwargs["freq"] for kwargs in config.env.kwargs])
+    env_freq = int(ctrl_freqs.max())
+    periods = env_freq // ctrl_freqs
+    env = gymnasium.make(
+        "MultiDroneRacing-v0",
+        freq=env_freq,
+        sim_config=config.sim,
+        sensor_range=config.env.kwargs[0]["sensor_range"],
+        control_mode=config.env.kwargs[0]["control_mode"],
+        track=config.env.track,
+        disturbances=config.env.get("disturbances"),
+        randomizations=config.env.get("randomizations"),
+        seed=1337,
+    )
+    env = JaxToNumpy(env)
+
+    obs, info = env.reset()
+    ctrls = []
+    for rank, ctrl_cls in enumerate(ctrl_classes):
+        ctrl_config = copy.deepcopy(config)
+        ctrl_config.env.freq = config.env.kwargs[rank]["freq"]
+        ctrls.append(ctrl_cls(obs, info | {"rank": rank}, ctrl_config))
+    actions = np.zeros(env.action_space.shape, dtype=np.float32)
+    step = 0
+    while True:
+        active = (step % periods == 0) & ~np.asarray(env.unwrapped.data.disabled_drones[0])
+        ctrl_infos = [info | {"rank": rank} for rank in range(len(ctrls))]
+        for rank in np.flatnonzero(active):
+            actions[rank] = ctrls[rank].compute_control(obs, ctrl_infos[rank])
+        obs, reward, terminated, truncated, info = env.step(actions)
+        for rank in np.flatnonzero(active):
+            ctrls[rank].step_callback(
+                actions[rank], obs, reward, terminated, truncated, ctrl_infos[rank]
+            )
+        step += 1
+        if terminated or truncated:
+            break
+    env.close()
+    assert np.all(obs["n_gates_passed"] == obs["gate_sequence"].shape[-1]), (
+        "Multi-drone controllers failed to complete the track"
     )
