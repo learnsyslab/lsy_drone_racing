@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   build:
+    # Only run this workflow for the main repository, not forks
+    if: github.repository == 'learnsyslab/lsy_drone_racing'
     runs-on: ubuntu-latest
 
     steps:
