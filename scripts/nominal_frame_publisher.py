@@ -1,7 +1,8 @@
 """ROS 2 node for publishing nominal gate, obstacle, and drone-init poses in RViz.
 
 When launching this node, add a `MarkerArray` display in RViz and subscribe it to the
-`/nominal_frame_publisher` topic.
+`/nominal_frames` topic. Each object is shown with a small coordinate system at its center and a
+text label (e.g. `nominal_gate1`).
 """
 
 import os
@@ -12,13 +13,13 @@ os.environ["SCIPY_ARRAY_API"] = "1"
 import argparse
 
 import rclpy
-from geometry_msgs.msg import TransformStamped
 from rclpy.node import Node
 from scipy.spatial.transform import Rotation as R
-from tf2_ros import TransformBroadcaster
 from visualization_msgs.msg import Marker, MarkerArray
 
 from lsy_drone_racing.utils import load_config
+
+IDENTITY_QUAT = [0.0, 0.0, 0.0, 1.0]
 
 
 class NominalFramePublisherNode(Node):
@@ -31,28 +32,12 @@ class NominalFramePublisherNode(Node):
             config_name: Name of the track config file inside the repository-level config dir.
         """
         super().__init__("nominal_frame_publisher")
-        self.publisher = self.create_publisher(MarkerArray, "nominal_frame_publisher", 10)
-        self.tf_broadcaster = TransformBroadcaster(self)
+        self.publisher = self.create_publisher(MarkerArray, "nominal_frames", 10)
         self.config = load_config(Path(__file__).resolve().parents[1] / "config" / config_name)
 
         timer_period = 0.5
         self.timer = self.create_timer(timer_period, self.timer_callback)
-
-    def _make_transform(
-        self, frame_id: str, child_frame_id: str, position: list[float], orientation: list[float]
-    ) -> TransformStamped:
-        transform = TransformStamped()
-        transform.header.stamp = self.get_clock().now().to_msg()
-        transform.header.frame_id = frame_id
-        transform.child_frame_id = child_frame_id
-        transform.transform.translation.x = float(position[0])
-        transform.transform.translation.y = float(position[1])
-        transform.transform.translation.z = float(position[2])
-        transform.transform.rotation.x = float(orientation[0])
-        transform.transform.rotation.y = float(orientation[1])
-        transform.transform.rotation.z = float(orientation[2])
-        transform.transform.rotation.w = float(orientation[3])
-        return transform
+        self.get_logger().info(f"Publishing nominal frames from {config_name} on /nominal_frames")
 
     def get_poses(
         self,
@@ -116,28 +101,61 @@ class NominalFramePublisherNode(Node):
         marker.color.a = color[3]
         return marker
 
+    def _make_axes(
+        self,
+        marker_id: int,
+        namespace: str,
+        position: list[float],
+        orientation: list[float],
+        length: float = 0.15,
+    ) -> list[Marker]:
+        """Create a small coordinate system (x=red, y=green, z=blue) at the given pose."""
+        rot = R.from_quat(orientation)
+        # Arrow markers point along their local x-axis. Rotate them onto the y- and z-axes.
+        axis_rotations = [R.identity(), R.from_euler("z", 1.5708), R.from_euler("y", -1.5708)]
+        colors = [(1.0, 0.0, 0.0, 1.0), (0.0, 1.0, 0.0, 1.0), (0.0, 0.0, 1.0, 1.0)]
+        return [
+            self._make_marker(
+                marker_id=3 * marker_id + axis,
+                namespace=namespace,
+                marker_type=Marker.ARROW,
+                frame_id="world",
+                position=position,
+                orientation=(rot * axis_rot).as_quat().tolist(),
+                scale=(length, 0.015, 0.015),
+                color=color,
+            )
+            for axis, (axis_rot, color) in enumerate(zip(axis_rotations, colors))
+        ]
+
+    def _make_text(
+        self, marker_id: int, namespace: str, text: str, position: list[float]
+    ) -> Marker:
+        """Create a camera-facing text label at the given position."""
+        marker = self._make_marker(
+            marker_id=marker_id,
+            namespace=namespace,
+            marker_type=Marker.TEXT_VIEW_FACING,
+            frame_id="world",
+            position=position,
+            orientation=IDENTITY_QUAT,
+            scale=(0.0, 0.0, 0.08),
+            color=(1.0, 1.0, 1.0, 1.0),
+        )
+        marker.text = text
+        return marker
+
     def timer_callback(self):
         """Publish the nominal track objects at a fixed rate."""
         msg = MarkerArray()
-        transforms: list[TransformStamped] = []
         gate_poses, marker_orientations, obstacle_poses, drone_poses = self.get_poses()
 
-        for marker_id, ((position, orientation), marker_orientation) in enumerate(
+        for index, ((position, orientation), marker_orientation) in enumerate(
             zip(gate_poses, marker_orientations)
         ):
-            gate = self.config.env.track.gates[marker_id]
-            frame_id = gate.get("name", f"g_{marker_id + 1}")
-            transforms.append(
-                self._make_transform(
-                    frame_id="world",
-                    child_frame_id=frame_id,
-                    position=position,
-                    orientation=orientation,
-                )
-            )
             msg.markers.append(
                 self._make_marker(
-                    marker_id=marker_id,
+                    marker_id=index,
                     namespace="gates",
                     marker_type=Marker.CUBE,
                     frame_id="world",
@@ -147,62 +165,44 @@ class NominalFramePublisherNode(Node):
                     color=(0.2, 0.8, 1.0, 0.5),
                 )
             )
-
-        obstacle_offset = len(gate_poses)
-        for index, position in enumerate(obstacle_poses):
-            obstacle = self.config.env.track.obstacles[index]
-            frame_id = obstacle.get("name", f"o_{index + 1}")
-            marker_obstacle_position = [position[0], position[1], 1.52 / 2]
-            transforms.append(
-                self._make_transform(
-                    frame_id="world",
-                    child_frame_id=frame_id,
-                    position=position,
-                    orientation=[0.0, 0.0, 0.0, 1.0],
-                )
+            msg.markers.extend(self._make_axes(index, "gate_axes", position, orientation))
+            label_position = [position[0], position[1], position[2] + 0.45]
+            msg.markers.append(
+                self._make_text(index, "gate_labels", f"nominal_gate{index + 1}", label_position)
             )
+
+        for index, position in enumerate(obstacle_poses):
+            center = [position[0], position[1], 1.52 / 2]
             msg.markers.append(
                 self._make_marker(
-                    marker_id=obstacle_offset + index,
+                    marker_id=index,
                     namespace="obstacles",
                     marker_type=Marker.CYLINDER,
                     frame_id="world",
-                    position=marker_obstacle_position,
-                    orientation=[0.0, 0.0, 0.0, 1.0],
+                    position=center,
+                    orientation=IDENTITY_QUAT,
                     scale=(0.03, 0.03, 1.5),
                     color=(1.0, 0.6, 0.2, 0.8),
                 )
             )
-
-        drone_offset = obstacle_offset + len(obstacle_poses)
-        for index, (position, orientation) in enumerate(drone_poses):
-            drone = self.config.env.track.drones[index]
-            frame_id = drone.get("name", f"drone_init_{index + 1}")
-            marker_position = [position[0], position[1], position[2] + 0.05]
-            transforms.append(
-                self._make_transform(
-                    frame_id="world",
-                    child_frame_id=frame_id,
-                    position=position,
-                    orientation=orientation,
+            msg.markers.extend(self._make_axes(index, "obstacle_axes", position, IDENTITY_QUAT))
+            label_position = [position[0], position[1], position[2] + 0.1]
+            msg.markers.append(
+                self._make_text(
+                    index, "obstacle_labels", f"nominal_obstacle{index + 1}", label_position
                 )
             )
+
+        for index, (position, orientation) in enumerate(drone_poses):
+            msg.markers.extend(self._make_axes(index, "drone_init_axes", position, orientation))
+            label_position = [position[0], position[1], position[2] + 0.2]
             msg.markers.append(
-                self._make_marker(
-                    marker_id=drone_offset + index,
-                    namespace="drone_init",
-                    marker_type=Marker.ARROW,
-                    frame_id="world",
-                    position=marker_position,
-                    orientation=orientation,
-                    scale=(0.25, 0.05, 0.05),
-                    color=(0.3, 1.0, 0.3, 0.9),
+                self._make_text(
+                    index, "drone_init_labels", f"nominal_drone{index + 1}", label_position
                 )
             )
 
         self.publisher.publish(msg)
-        if transforms:
-            self.tf_broadcaster.sendTransform(transforms)
 
 
 def main():
