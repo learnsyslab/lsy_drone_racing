@@ -7,6 +7,7 @@ Note:
 import logging
 import os
 from pathlib import Path
+import sys
 
 import numpy as np
 from sim import simulate
@@ -36,10 +37,11 @@ def main():
         logger.error("More than 50% of all runs failed! Aborting evaluation.")
 
         # Print error only if ran by github actions
+        msg = f"🚨 {n_failed} of {n_runs} runs failed (more than 50%)!"
         if os.getenv("GITHUB_ACTIONS") == "true":
-            msg = f"🚨 {n_failed} of {n_runs} runs failed (more than 50%)!"
             print(f"::error title=Evaluation Failed::{msg}")
-        raise RuntimeError("Too many runs failed!")
+            sys.exit(1)
+        raise RuntimeError(msg)
 
     successful_times_avg = np.mean([x for x in ep_times if x is not None])
     logger.info(f"Average Time: successful_times_avg (s): {successful_times_avg}")
