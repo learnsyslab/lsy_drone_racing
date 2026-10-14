@@ -5,6 +5,7 @@ Note:
 """
 
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -32,8 +33,8 @@ def main():
 
     # Abort if more than half of the runs failed
     if (success_rate := 1 - n_failed / n_runs) < 0.5:
-        logger.error("More than 50% of all runs failed! Aborting evaluation.")
-        raise RuntimeError("Too many runs failed!")
+        print(f"::error title=Evaluation Failed::{n_failed} of {n_runs} runs failed (more than 50%)!")
+        sys.exit(1)
 
     successful_times_avg = np.mean([x for x in ep_times if x is not None])
     logger.info(f"Average Time: successful_times_avg (s): {successful_times_avg}")
