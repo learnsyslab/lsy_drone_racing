@@ -6,8 +6,8 @@ Note:
 
 import logging
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 from sim import simulate
