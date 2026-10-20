@@ -41,7 +41,7 @@ gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
     "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@d87b796",
-    "drone-estimators",
+    "drone-estimators>=0.1.0",
 ]
 # option[rl]: train rl policy
 rl = ["torch == 2.8.0", "wandb"]
