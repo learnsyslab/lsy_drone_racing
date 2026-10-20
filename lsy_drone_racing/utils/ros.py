@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
-from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+from drone_estimators.ros import ROSConnector
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -31,7 +31,7 @@ def track_poses(n_gates: int, n_obstacles: int) -> tuple[NDArray, NDArray, NDArr
     ros_connector = None
     try:
         ros_connector = ROSConnector(tf_names=tf_names, timeout=10.0)
-        pos, quat = ros_connector.pos, ros_connector.quat
+        pos, quat = ros_connector.tf_pos, ros_connector.tf_quat
         for i in range(n_gates):
             gate_pos[i, ...] = pos[f"gate{i + 1}"]
             gate_quat[i, ...] = quat[f"gate{i + 1}"]
@@ -64,8 +64,8 @@ def drone_poses(drone_names: list[str]) -> tuple[NDArray, NDArray]:
     try:
         ros_connector = ROSConnector(estimator_names=drone_names, timeout=10.0)
         for i, drone_name in enumerate(drone_names):
-            drone_pos[i, ...] = ros_connector.pos[drone_name]
-            drone_quat[i, ...] = ros_connector.quat[drone_name]
+            drone_pos[i, ...] = ros_connector.est_pos[drone_name]
+            drone_quat[i, ...] = ros_connector.est_quat[drone_name]
     except KeyError as e:
         raise KeyError(
             f"Could not find drone in the ROS estimator messages: {e}. Have you enabled the drone "

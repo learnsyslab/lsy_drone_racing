@@ -15,7 +15,7 @@ from cflib2 import LinkContext
 from cflib2.error import CrazyflieError
 from cflib2.toc_cache import FileTocCache
 from crazyflow.control.transform import force2pwm
-from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+from drone_estimators.ros import ROSConnector
 from scipy.spatial.transform import Rotation as R
 
 if TYPE_CHECKING:
@@ -319,8 +319,8 @@ class Crazyflie:
             self._commander_level = None
 
     async def _reset_estimator(self) -> None:
-        pos = self._ros_connector.pos[self.drone_name]
-        quat = self._ros_connector.quat[self.drone_name]
+        pos = self._ros_connector.tf_pos[self.drone_name]
+        quat = self._ros_connector.tf_quat[self.drone_name]
         param = self.cf.param()
         await param.set("kalman.initialX", pos[0])
         await param.set("kalman.initialY", pos[1])
@@ -351,8 +351,8 @@ class Crazyflie:
         await self.cf.commander().send_setpoint_rpyt(0.0, 0.0, 0.0, 0)
 
     async def _send_external_pose(self) -> None:
-        pos = self._ros_connector.pos[self.drone_name]
-        quat = self._ros_connector.quat[self.drone_name]
+        pos = self._ros_connector.tf_pos[self.drone_name]
+        quat = self._ros_connector.tf_quat[self.drone_name]
         await self.cf.localization().external_pose().send_external_pose(pos=pos, quat=quat)
 
     async def _update_estimators(self, stop_event: Event) -> None:

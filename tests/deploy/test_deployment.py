@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import rclpy
-    from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+    from drone_estimators.ros import ROSConnector
 
     from lsy_drone_racing.utils.crazyflie import Crazyflie
 except ImportError as e:
@@ -47,10 +47,10 @@ def parse_args() -> argparse.Namespace:
 def current_obs(ros_connector: Any, drone_name: str) -> dict[str, np.ndarray]:
     """Return the single-drone observation fields needed for return_to_start."""
     return {
-        "pos": ros_connector.pos[drone_name],
-        "quat": ros_connector.quat[drone_name],
-        "vel": ros_connector.vel[drone_name],
-        "ang_vel": ros_connector.ang_vel[drone_name],
+        "pos": ros_connector.est_pos[drone_name],
+        "quat": ros_connector.est_quat[drone_name],
+        "vel": ros_connector.est_vel[drone_name],
+        "ang_vel": ros_connector.est_ang_vel[drone_name],
     }
 
 
@@ -150,7 +150,7 @@ def attitude_circle(
     """Take off and fly one small circle with the attitude controller."""
     takeoff_duration = 2.0
     circle_duration = 4.0
-    start = obs_connector.pos[drone_name].copy()
+    start = obs_connector.est_pos[drone_name].copy()
     override_attitude_reference(
         controller, start, height, radius, takeoff_duration, circle_duration
     )
@@ -226,7 +226,7 @@ def main() -> None:
         drone.connect()
         drone.reset(arm=True)
         state_circle(
-            drone, obs_connector.pos[drone_name].copy(), args.height, args.radius, args.freq
+            drone, obs_connector.est_pos[drone_name].copy(), args.height, args.radius, args.freq
         )
         logger.info("Returning to start after state-command test.")
         drone.return_to_start(home_pos, current_obs(obs_connector, drone_name), check_ok=rclpy.ok)
@@ -251,7 +251,7 @@ def main() -> None:
 
         logger.info("Connecting and resetting for high-level goto test.")
         drone.reset(arm=True)
-        target = obs_connector.pos[drone_name].copy()
+        target = obs_connector.est_pos[drone_name].copy()
         target[2] = args.height
         logger.info("Sending high-level goto to %s.", np.array2string(target, precision=3))
         drone.go_to(target, duration=3.0)

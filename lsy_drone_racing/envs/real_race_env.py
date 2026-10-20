@@ -17,7 +17,7 @@ import numpy as np
 import rclpy
 from crazyflow.control import load_params as load_control_params
 from crazyflow.dynamics import load_params as load_dynamics_params
-from drone_estimators.ros_nodes.ros2_connector import ROSConnector
+from drone_estimators.ros import ROSConnector
 from gymnasium import Env
 from scipy.spatial.transform import Rotation as R
 
@@ -159,11 +159,11 @@ class RealRaceCoreEnv:
         if options.get("check_drone_start_pos", True):
             check_drone_start_pos(
                 nominal_pos=self.drones.pos[self.rank],
-                real_pos=self._ros_connector.pos[self.drone_name],
+                real_pos=self._ros_connector.est_pos[self.drone_name],
                 rng_config=self.randomizations,
                 drone_name=self.drone_name,
             )
-        self.data.reset(np.stack([self._ros_connector.pos[n] for n in self.drone_names]))
+        self.data.reset(np.stack([self._ros_connector.est_pos[n] for n in self.drone_names]))
 
         self.drone.connect(timeout=10.0)
         self.drone.reset(arm=True)
@@ -181,9 +181,9 @@ class RealRaceCoreEnv:
                 action[:3], action[3:6], action[6:9], action[9:13], action[13:16]
             )
 
-        drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
+        drone_pos = np.stack([self._ros_connector.est_pos[drone] for drone in self.drone_names])
         assert drone_pos.dtype == np.float32, "Drone position must be of type float32"
-        drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
+        drone_quat = np.stack([self._ros_connector.est_quat[drone] for drone in self.drone_names])
         assert drone_quat.dtype == np.float32, "Drone quaternion must be of type float32"
         # Check if the drone is in the sensor range of the gates and obstacles
         dpos = drone_pos[:, None, :2] - self.gates.pos[None, :, :2]
@@ -217,10 +217,12 @@ class RealRaceCoreEnv:
         obstacles_pos = np.where(mask, self.obstacles.pos, self.obstacles.nominal_pos).astype(
             np.float32
         )
-        drone_pos = np.stack([self._ros_connector.pos[drone] for drone in self.drone_names])
-        drone_quat = np.stack([self._ros_connector.quat[drone] for drone in self.drone_names])
-        drone_vel = np.stack([self._ros_connector.vel[drone] for drone in self.drone_names])
-        drone_ang_vel = np.stack([self._ros_connector.ang_vel[drone] for drone in self.drone_names])
+        drone_pos = np.stack([self._ros_connector.est_pos[drone] for drone in self.drone_names])
+        drone_quat = np.stack([self._ros_connector.est_quat[drone] for drone in self.drone_names])
+        drone_vel = np.stack([self._ros_connector.est_vel[drone] for drone in self.drone_names])
+        drone_ang_vel = np.stack(
+            [self._ros_connector.est_ang_vel[drone] for drone in self.drone_names]
+        )
         gate_sequence_shape = (self.n_drones, self.gate_sequence.shape[0])
         gate_sequence = np.broadcast_to(self.gate_sequence, gate_sequence_shape)
         gate_sequence_direction = np.broadcast_to(self.gate_sequence_direction, gate_sequence_shape)
@@ -279,7 +281,7 @@ class RealRaceCoreEnv:
         ros_connector: ROSConnector | None = None
         try:
             ros_connector = ROSConnector(tf_names=tf_names, timeout=10.0)
-            pos, quat = ros_connector.pos, ros_connector.quat
+            pos, quat = ros_connector.tf_pos, ros_connector.tf_quat
         finally:
             if ros_connector is not None:
                 ros_connector.close()
@@ -313,7 +315,7 @@ class RealRaceCoreEnv:
             kwargs.minval, kwargs.maxval, self.obstacles.pos.shape
         )
         for i, name in enumerate(self.drone_names):
-            self.drones.pos[i, ...] = self._ros_connector.pos[name]
+            self.drones.pos[i, ...] = self._ros_connector.est_pos[name]
         logger.info(
             f"Synthesized nominal track (seed: {seed})\n"
             f"Gate positions:\n{self.gates.nominal_pos}\n"
