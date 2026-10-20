@@ -141,9 +141,7 @@ ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/e
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
 mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
-estimator = { cmd = "python -m drone_estimators.ros.node --drone_name {{ drone_name }}", args = [
-  { arg = "drone_name" },
-], description = "Start the drone state estimator" }
+estimator = { cmd = "python -m drone_estimators.ros.node", description = "Start the drone state estimator" }
 
 [tool.pixi.feature.deploy.dependencies]
 packaging = ">=24,<26"  # Necessary for cflib2

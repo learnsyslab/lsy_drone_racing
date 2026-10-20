@@ -14,16 +14,18 @@ After completing the [hardware setup](../getting_started/setup.md#hardware-setup
 In the first terminal, run this command to launch the translation layer from the motion capture cameras to ROS2.
 
 ```bash
-pixi run -e deploy mocap
+pixi run mocap
 ```
 
 !!! warning
     If you cannot see the drone in RVIZ, it is likely that Vicon is not turned on, or the drone is not selected for tracking in the Vicon system.
 
-The second terminal is used to launch the estimator for the drone. If you want to use the default settings, it's enough to specify your drone ID with `pixi run -e deploy estimator <drone_name>`. You need to use the actual DEC number on the drone or the name shown in rviz. If the estimator works, you should see the frequency information in the terminal.
+The second terminal is used to launch the estimator for the drone. To use the default settings, run `pixi run estimator`. These settings are made for `cf01`, so if you use a different drone, you need to tell the estimator which drone to track with `--drone_name`. Use the DEC number on your drone or the name shown in RVIZ. Optionally, you can choose the estimator type (`ukf`, `ekf` or `diff`) with `--estimator_type`. If the estimator works, you should see the frequency information in the terminal.
 
 ```bash
-pixi run -e deploy estimator cf01
+pixi run estimator --drone_name cf02
+# or 
+pixi run estimator --drone_name cf02 --estimator_type ukf
 ```
 
 ## Setting up the Track 
