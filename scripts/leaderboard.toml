@@ -66,6 +66,9 @@ github = "spalder"
 [team11]
 name = "Narges and Eram"
 github = "Eram333"
+time = 25.456666666666667
+success_rate = 0.9
+submissions = 1
 
 [team12]
 name = "Del Lobos"
