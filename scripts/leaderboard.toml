@@ -30,6 +30,9 @@ github = "Xiaolong-Li1904"
 [team2]
 name = "BreakFaster"
 github = "mahdisafari761"
+time = 23.20133333333333
+success_rate = 0.75
+submissions = 1
 
 [team3]
 name = "QuadroBlade"
