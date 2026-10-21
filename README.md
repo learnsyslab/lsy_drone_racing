@@ -6,7 +6,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 ## Leaderboard 🏁
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
-| 🥇 | Überflieger | 4.097 | 90 | 1 |
+| 🥇 | Überflieger | 3.829 | 90 | 2 |
 | 🥈 | Justin & Finn | 5.917 | 75 | 1 |
 | 🥉 | BreakFaster | 14.349 | 95 | 2 |
 | 4 | Radu (TA) | 18.457 | 60 | 2 |
