@@ -6,17 +6,17 @@ This competition is only for students of the ADR course at TUM. Students have to
 ## Leaderboard 🏁
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
-| 🥇 | Radu (TA) | 18.457 | 60 | 2 |
-| 🥈 | Narges and Eram | 25.457 | 90 | 1 |
-| 🥉 | Marcel (TA) | 26.626 | 50 | 7 |
-| 4 | Martin (TA) | 27.082 | 85 | 1 |
+| 🥇 | Justin & Finn | 5.917 | 75 | 1 |
+| 🥈 | Radu (TA) | 18.457 | 60 | 2 |
+| 🥉 | Narges and Eram | 25.457 | 90 | 1 |
+| 4 | Marcel (TA) | 26.626 | 50 | 7 |
+| 5 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | Überflieger | N/A | 0 | 0 |
 | - | BreakFaster | N/A | 0 | 0 |
 | - | QuadroBlade | N/A | 0 | 0 |
 | - | Royal Army | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
-| - | Justin & Finn | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
 | - | Barbie Drone | N/A | 0 | 0 |
