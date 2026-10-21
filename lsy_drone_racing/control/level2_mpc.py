@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from crazyflow.dynamics import load_params
+
 from lsy_drone_racing.control import Controller
 
 if TYPE_CHECKING:
@@ -39,6 +40,8 @@ class Level2MPC(Controller):
         self.target = np.asarray(obs["pos"], float).copy()
         self.target[2] = 0.65
         self.route = []
+        self.route_goal = None
+        self.next_plan_tick = 0
         self.map_key = None
         self.n = 20
         self.h = 0.06
@@ -84,7 +87,10 @@ class Level2MPC(Controller):
         self.centers = np.asarray(obs["gates_pos"], float)
         self.rot = Rotation.from_quat(obs["gates_quat"]).as_matrix()
         self.poles = np.asarray(obs["obstacles_pos"], float)
-        self.pole_r = np.where(obs["obstacles_visited"], 0.22, 0.35)
+        # A 17 cm clearance includes the vehicle footprint and tracking reserve.
+        # Keeping the nominal-position uncertainty after observing a pole can
+        # incorrectly close a physically traversable gate approach.
+        self.pole_r = np.where(obs["obstacles_visited"], 0.17, 0.35)
         self.margin = np.where(obs["gates_visited"], 0.105, 0.24)
         key = (
             self.centers.tobytes(),
@@ -210,7 +216,7 @@ class Level2MPC(Controller):
         reset_route = changed
         if passed != self.passed:
             center, normal = self.geometry(obs, self.passed)
-            self.target = center + 0.20 * normal
+            self.target = center + 0.28 * normal
             self.passed = passed
             self.phase = "exit"
             self.route = [self.target.copy()]
@@ -245,8 +251,22 @@ class Level2MPC(Controller):
                 if feasible:
                     self.target = min(feasible, key=lambda p: np.linalg.norm(pos - p))
                     ready = False
-            if reset_route or not self.route:
+            target_changed = self.route_goal is None or not np.allclose(
+                self.target, self.route_goal, atol=0.01
+            )
+            blocked = (
+                bool(self.route) and not self.clear_segments(pos, self.route[0], escape=True)[0]
+            )
+            incomplete = bool(self.route) and np.linalg.norm(self.route[-1] - self.target) > 0.01
+            if (
+                reset_route
+                or target_changed
+                or not self.route
+                or ((blocked or incomplete) and self.tick >= self.next_plan_tick)
+            ):
                 self.route = self.plan(pos, self.target)
+                self.route_goal = self.target.copy()
+                self.next_plan_tick = self.tick + max(1, round(0.5 / self.dt))
             while len(self.route) > 1 and np.linalg.norm(pos - self.route[0]) < 0.06:
                 self.route.pop(0)
             if (
