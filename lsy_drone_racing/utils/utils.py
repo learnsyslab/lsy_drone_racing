@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import inspect
 import logging
@@ -18,6 +19,23 @@ if TYPE_CHECKING:
     from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def extract_config_for_rank(config: ConfigDict, rank: int) -> ConfigDict:
+    """Get the configuration for a specific drone rank in a multi-drone setup.
+
+    Args:
+        config: The full configuration dictionary.
+        rank: The rank of the drone.
+
+    Returns:
+        The configuration specific to the given drone rank.
+    """
+    cfg = copy.deepcopy(config)
+    if "kwargs" in config.env:
+        for key, value in config.env.kwargs[rank].items():
+            cfg.env[key] = value
+    return cfg
 
 
 def load_controller(path: Path) -> Type[Controller]:
