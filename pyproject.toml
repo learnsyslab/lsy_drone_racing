@@ -137,6 +137,7 @@ scripts = ["tools/setup_mocap.sh"]
 RMW_IMPLEMENTATION = "rmw_zenoh_cpp"
 ZENOH_ROUTER_CHECK_ATTEMPTS = "-1"  # Do not check for a router when a node starts
 ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
+RUST_LOG = "zenoh=error"
 
 ## feature [deploy]
 [tool.pixi.feature.deploy.tasks]
