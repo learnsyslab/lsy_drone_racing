@@ -26,9 +26,9 @@ github = "Yuming-Lee24"
 [team1]
 name = "Überflieger"
 github = "Xiaolong-Li1904"
-time = 3.828888888888889
-success_rate = 0.9
-submissions = 2
+time = 3.3425000000000002
+success_rate = 0.8
+submissions = 3
 
 [team2]
 name = "BreakFaster"
@@ -102,7 +102,6 @@ github = "gitveronikahub"
 [team17]
 name = "Quiet Donuts"
 github = "mathurin-lab"
-
 
 [team18]
 name = "multi-drone RL (MAADR)"
