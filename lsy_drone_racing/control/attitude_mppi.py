@@ -92,7 +92,7 @@ def rollout(x0: Array, U: Array, params: dict, dt: float) -> Array:
 
 COST_CONSTANTS = {
     "deviation_weight": 1.0,  # Weight for deviation from reference trajectory
-    "smoothness_weight": 0.1,  # Weight for control smoothness
+    "smoothness_weight": 0.01,  # Weight for control smoothness
 }
 
 
@@ -260,14 +260,14 @@ class AttitudeMPPI(Controller):
         waypoints = np.array(
             [
                 start_pos,
-                [-1.0, 0.75, 0.4],
+                [-1.0, 0.55, 0.4],
                 [0.3, 0.35, 0.7],
                 [1.3, -0.15, 0.9],
                 [0.85, 0.85, 1.2],
                 [-0.5, -0.05, 0.7],
-                [-1.2, -0.2, 0.8],
-                [-1.2, -0.2, 1.2],
-                [-0.0, -0.7, 1.2],
+                [-1.15, -0.2, 0.8],
+                [-0.9, 0.1, 1.2],
+                [0.0, -0.75, 1.2],
                 [1.2, -0.15, 1.2],
                 [1.05, 0.75, 1.2],
                 [0.25, 1.25, 1.2],
