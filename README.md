@@ -9,10 +9,11 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥇 | Überflieger | 3.343 | 80 | 3 |
 | 🥈 | BreakFaster | 4.871 | 80 | 3 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
-| 4 | Radu (TA) | 18.457 | 60 | 2 |
-| 5 | Narges and Eram | 25.457 | 90 | 1 |
-| 6 | Marcel (TA) | 26.626 | 50 | 7 |
-| 7 | Martin (TA) | 27.082 | 85 | 1 |
+| 4 | Terminal Velocity | 15.514 | 80 | 1 |
+| 5 | Radu (TA) | 18.457 | 60 | 2 |
+| 6 | Narges and Eram | 25.457 | 90 | 1 |
+| 7 | Marcel (TA) | 26.626 | 50 | 7 |
+| 8 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | QuadroBlade | N/A | 0 | 0 |
 | - | Royal Army | N/A | 0 | 0 |
@@ -25,7 +26,6 @@ This competition is only for students of the ADR course at TUM. Students have to
 | - | SkyX | N/A | 0 | 0 |
 | - | Nova-YJ | N/A | 0 | 0 |
 | - | Cowhors3 | N/A | 0 | 0 |
-| - | Terminal Velocity | N/A | 0 | 0 |
 | - | Quiet Donuts | N/A | 0 | 0 |
 | - | multi-drone RL (MAADR) | N/A | 0 | 0 |
 
