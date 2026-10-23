@@ -9,7 +9,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥇 | Überflieger | 3.343 | 80 | 3 |
 | 🥈 | BreakFaster | 4.871 | 80 | 3 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
-| 4 | Terminal Velocity | 15.442 | 55 | 2 |
+| 4 | Terminal Velocity | 15.422 | 60 | 3 |
 | 5 | Radu (TA) | 18.457 | 60 | 2 |
 | 6 | Narges and Eram | 25.457 | 90 | 1 |
 | 7 | Marcel (TA) | 26.626 | 50 | 7 |
