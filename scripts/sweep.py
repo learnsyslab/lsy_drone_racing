@@ -59,12 +59,12 @@ def run_episode(
     env = JaxToNumpy(env)
     obs, info = env.reset()
     controller = controller_cls(obs, info, config)
-    setattr(controller, attr, value)
+    setattr(controller, attr, value)  # override the swept attribute after construction
 
     steps, ess = 0, []
     while True:
         action = controller.compute_control(obs, info)
-        ess.append(getattr(controller, "_ess", np.nan))
+        ess.append(getattr(controller, "_ess", np.nan))  # controllers without ESS give NaN
         obs, reward, terminated, truncated, info = env.step(action)
         finished = controller.step_callback(action, obs, reward, terminated, truncated, info)
         if finished or terminated or truncated:
@@ -80,6 +80,7 @@ def sweep(
     values: float | tuple[float, ...] = (0.05,),
     n_seeds: int = 8,
     config: str = "level0.toml",
+    control_mode: str | None = None,
 ):
     """Evaluate a controller for several values of one attribute.
 
@@ -90,21 +91,25 @@ def sweep(
         values: The values to test, given as comma-separated numbers on the command line.
         n_seeds: Number of seeds, which are 1 to `n_seeds`.
         config: The path to the configuration file. Assumes the file is in `config/`.
+        control_mode: Overrides the control mode of the config (`state` or `attitude`) if given.
     """
     config = load_config(Path(__file__).parents[1] / "config" / config)
     config.sim.render = False
+    if control_mode is not None:
+        config.env.control_mode = control_mode  # lets a config run with a different interface
     control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
     controller_cls = load_controller(control_path / (controller or config.controller.file))
 
     for value in np.atleast_1d(values):
+        # Same seeds for every value, so the values are compared on identical tracks
         results = [
             run_episode(config, controller_cls, seed, attr, float(value))
             for seed in range(1, n_seeds + 1)
         ]
         gates = [r[0] for r in results]
         n_total = len(config.env.track.gate_order)
-        n_success = sum(g == n_total for g in gates)
-        times = [r[1] for r in results if r[0] == n_total]
+        n_success = sum(g == n_total for g in gates)  # success means all gates were passed
+        times = [r[1] for r in results if r[0] == n_total]  # time only counts for finished runs
         mean_time = f"{np.mean(times):.2f}s" if times else "n/a"
         logger.info(
             f"{attr}={value}: success {n_success}/{n_seeds}, gates per seed {gates}, "
