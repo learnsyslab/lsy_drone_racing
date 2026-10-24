@@ -1,9 +1,8 @@
 """
 Planner to which generates paths through control points
 """
-import warnings
-import xml.etree.ElementTree as ET
-from pathlib import Path
+
+from abc import abstractmethod
 
 import crazyflow
 import time
@@ -22,10 +21,12 @@ from lsy_drone_racing.control.utils.utils import (
 )
 
 from lsy_drone_racing.control.utils.types import (
-    Reference,
     ObservationDict
 )
-class SplinePlanner():
+
+from lsy_drone_racing.control.planner.reference import Reference
+
+class SplinePlanner:
 
     """
     Spline Planner through the gates which pushes the path away from obstacles
@@ -39,18 +40,9 @@ class SplinePlanner():
         """
         Args:
             obs: Initial observation.
-            drone: Drone model name (config.sim.drone), used to read the drone's collision radius.
-            obstacle_margin: Extra clearance [m] on top of drone radius + obstacle radius.
-            insert_margin: Inserted safe points are placed this much [m] beyond the clearance so
-                the spline between neighbouring waypoints also tends to stay clear.
-            sample_ds: Spacing [m] of the dense samples used for the collision check.
-            min_waypoint_spacing: A violation closer than this [m] to an existing waypoint moves
-                that waypoint instead of inserting a new one.
-            max_collision_iters: Maximum number of check / insert / refit rounds.
+            config: Environment config.
         """
 
-        # required distance between path and obstacle center (xy)
-        # self.clearance = drone_collision_radius(drone) + obstacle_radius() + obstacle_margin
         self.config = config
         
         self.gate_sequence = obs["gate_sequence"]
@@ -61,27 +53,8 @@ class SplinePlanner():
 
         self.is_track_randomized = self.config.env.track.randomize
         self._current_reference = None
-        self._reference_version = 0
         
-        self._default_waypoints = np.array(
-            [
-                obs["pos"],
-                [-1.0, 0.75, 0.4],
-                [0.3, 0.35, 0.7],
-                [1.3, -0.15, 0.9],
-                [0.85, 0.85, 1.2],
-                [-0.5, -0.05, 0.7],
-                [-1.2, -0.2, 0.8],
-                [-1.2, -0.2, 1.2],
-                [-0.0, -0.7, 1.2],
-                [1.2, -0.15, 1.2],
-                [1.05, 0.75, 1.2],
-                [0.25, 1.25, 1.2],
-            ]
-        )
-        
-        self.ds = 0.01 # reference is sampled every ds [m] 
-
+        self.ds = 0.01 # reference is sampled every ds [m]
         margin = 0.04 # safety margin for collisions
         
         d_r = drone_collision_radius(config.sim.drone)
@@ -96,11 +69,10 @@ class SplinePlanner():
         if self._current_reference is None:
             # initial path
             if not self.is_track_randomized:
-                knots, tangents, accs = self.default_curve() # use provided waypoints
+                self._current_reference = Reference.default_reference(obs)
             else:
-                knots, tangents, accs = self.find_waypoints(obs) # compute waypoints from gate positions
+                self._current_reference = Reference(*self.find_waypoints(obs)) # compute waypoints from gate positions
 
-            self._current_reference = self.build_reference(knots, tangents, accs)
             return self._current_reference
         
         updated_obstacles = np.flatnonzero(obs["obstacles_visited"] & ~self.obstacles_visited)
@@ -131,15 +103,7 @@ class SplinePlanner():
         
         # project to closest point inside
         safe_points = self.closest_safe_point_inside(forward, obs)
-        tangents = self._current_reference.path(forward["s"], 1)
-        accs = self._current_reference.path(forward["s"], 2)
-
-        # insert / replace with safe points
-        updated = self.insert_waypoints(safe_points, tangents, accs, forward["s"])
-
-        if updated is not None:
-            self._current_reference = self.build_reference(*updated)
-            updated = None
+        self._current_reference.update(safe_points, forward["s"])
         
         """ TODO handle points close to plane as well
         safe_points, _ = self.closest_safe_point_outside(other, obs)
@@ -153,11 +117,11 @@ class SplinePlanner():
             self._current_reference = self.build_reference(*updated)
         """
         
-    def _handle_obstacle_update(self, obs, new_obstacles):
+    def _handle_obstacle_update(self, obs, new_obstacles, eps=0.03):
         obstacle_pos = obs["obstacles_pos"][new_obstacles]
         ref = self._current_reference
              
-        dist = self.min_distance_to_obstacles(obstacle_pos, ref.dense_waypoints)
+        dist = self.min_distance_to_obstacles(obstacle_pos, ref._dense_knots)
         path_collides = (dist < self.obstacle_clearance).any()
         
         if not path_collides:
@@ -165,35 +129,19 @@ class SplinePlanner():
         
         min_i = np.argmin(dist, axis=0)
         
-        closest = ref.dense_waypoints[min_i]
+        closest = ref._dense_knots[min_i]
         dir_vec = (closest - obstacle_pos) * np.array([1.0, 1.0, 0.0])
         dir_vec = dir_vec / la.norm(dir_vec)
         
-        safe_points = closest + self.obstacle_clearance * dir_vec
+        clearance = self.obstacle_clearance + eps
+        
+        safe_points = closest + clearance * dir_vec
         
         s = ref.path.x[min_i]
-        tangents = ref.path(s, 1)
-        accs = ref.path(s, 2)
         
-        updated = self.insert_waypoints(safe_points, tangents, accs, s)
-        
-        if updated is not None:
-            self._current_reference = self.build_reference(*updated)
-            updated = None
-        
-    def default_curve(self):
-        """
-        Sparse curve through the default waypoints.
+        self._current_reference.update(safe_points, s)
 
-        The derivatives are taken from a cubic spline through the waypoints, so the quintic
-        Hermite curve built from them reproduces exactly that cubic spline.
-        """
-        knots = self._default_waypoints
-        u = np.append(0, np.cumsum(la.norm(np.diff(knots, axis=0), axis=1)))
-        spline = CubicSpline(u, knots, axis=0)
-        return knots, spline(u, 1), spline(u, 2)
-
-    def find_waypoints(self, obs, tangent_scale=1.0, overshoot=1.0):
+    def find_waypoints(self, obs, tangent_scale=1.0, overshoot=1.0) -> tuple:
         ego_pos = obs["pos"]
         ego_vel = obs["vel"]
         
@@ -212,58 +160,6 @@ class SplinePlanner():
         accs = np.zeros_like(tangents) # straight through the gates
 
         return pts, tangents, accs
-
-    def build_reference(self, knots, tangents, accs) -> Reference:
-        """
-        Build the reference from the sparse curve.
-
-        The sparse quintic Hermite curve is densely sampled and refit by a cubic spline that is
-        parameterized by arc length.
-        """
-        curve, u_knots = self.build_sparse_curve(knots, tangents, accs)
-
-        # dense samples, uniform in the chord parameter u
-        u, dense_waypoints = self.resample_spline(curve, u_knots[-1])
-
-        # reparameterize by arc length
-        s = np.append(0, np.cumsum(la.norm(np.diff(dense_waypoints, axis=0), axis=1)))
-        spline = CubicSpline(s, dense_waypoints, axis=0)
-
-        self._reference_version = self._reference_version + 1
-
-        return Reference(
-            path=spline,
-            sparse_waypoints=knots,
-            sparse_tangents=tangents,
-            sparse_accs=accs,
-            dense_waypoints=dense_waypoints,
-            sparse_s=np.interp(u_knots, u, s), # map knot parameters to arc length
-            length=s[-1],
-            version=self._reference_version
-        )
-
-    @staticmethod
-    def build_sparse_curve(knots, tangents, accs):
-        """
-        Quintic Hermite curve through the knots with the given first and second derivatives.
-
-        The curve is parameterized by the chord length between the knots. It is C2 and local:
-        changing a knot only changes the two adjacent segments.
-
-        Returns:
-            curve: BPoly, evaluated as curve(u) -> (..., 3)
-            u: (K,) chord parameter of the knots
-        """
-        u = np.append(0, np.cumsum(la.norm(np.diff(knots, axis=0), axis=1)))
-        if np.any(np.diff(u) <= 0):
-            raise ValueError("Consecutive knots must not coincide.")
-
-        curve = BPoly.from_derivatives(u, np.stack([knots, tangents, accs], axis=1)) # (K, 3 derivs, 3 dims)
-        return curve, u
-
-    def resample_spline(self, spline, length):
-        u = np.linspace(0, length, int(length / self.ds) + 1)
-        return u, spline(u)
     
     def gate_plane_crossings(self, obs, gates_to_check, search_radius=0.4):
         """
@@ -381,43 +277,6 @@ class SplinePlanner():
         safe_world = gates_pos + rot.apply(safe_local)
 
         return safe_world, moved
-
-    def insert_waypoints(self, new_pts, new_tangents, new_accs, new_s, min_spacing=0.3):
-        """
-        Insert knots into the sparse curve of the current reference, ordered by progress.
-
-        A new knot closer than min_spacing [m] (in s) to an existing knot replaces that knot
-        instead (except for the start knot).
-
-        Args:
-            new_pts, new_tangents, new_accs: (M, 3) knots and their derivatives.
-            new_s: (M,) progress of the new knots on the current reference.
-
-        Returns:
-            knots, tangents, accs of the updated sparse curve.
-        """
-        ref = self._current_reference
-        sparse_s = ref.sparse_s
-
-        # sort by progress so knots with the same insertion index stay ordered
-        order = np.argsort(new_s)
-        new_s = new_s[order]
-        new = [new_pts[order], new_tangents[order], new_accs[order]]
-
-        idx = np.searchsorted(sparse_s, new_s) # insert before knot idx
-
-        left = np.clip(idx - 1, 0, len(sparse_s) - 1)
-        right = np.clip(idx, 0, len(sparse_s) - 1)
-        nearest = np.where(np.abs(sparse_s[left] - new_s) < np.abs(sparse_s[right] - new_s), left, right)
-        replace = (np.abs(sparse_s[nearest] - new_s) < min_spacing) & (nearest != 0)
-
-        updated = []
-        for old, values in zip([ref.sparse_waypoints, ref.sparse_tangents, ref.sparse_accs], new):
-            old = old.copy()
-            old[nearest[replace]] = values[replace]
-            updated.append(np.insert(old, idx[~replace], values[~replace], axis=0))
-
-        return tuple(updated)
     
     def min_distance_to_obstacles(self, obstacle_pos, waypoints):
     
