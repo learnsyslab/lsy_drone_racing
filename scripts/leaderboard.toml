@@ -40,6 +40,9 @@ submissions = 3
 [team3]
 name = "QuadroBlade"
 github = "zycsss"
+time = 12.724
+success_rate = 0.5
+submissions = 1
 
 [team4]
 name = "Royal Army"

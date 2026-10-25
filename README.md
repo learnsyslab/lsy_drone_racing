@@ -10,12 +10,12 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | BreakFaster | 4.871 | 80 | 3 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
 | 4 | Narges and Eram | 8.478 | 85 | 3 |
-| 5 | Terminal Velocity | 15.422 | 60 | 3 |
-| 6 | Radu (TA) | 18.457 | 60 | 2 |
-| 7 | Marcel (TA) | 26.626 | 50 | 7 |
-| 8 | Martin (TA) | 27.082 | 85 | 1 |
+| 5 | QuadroBlade | 12.724 | 50 | 1 |
+| 6 | Terminal Velocity | 15.422 | 60 | 3 |
+| 7 | Radu (TA) | 18.457 | 60 | 2 |
+| 8 | Marcel (TA) | 26.626 | 50 | 7 |
+| 9 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
-| - | QuadroBlade | N/A | 0 | 0 |
 | - | Royal Army | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
