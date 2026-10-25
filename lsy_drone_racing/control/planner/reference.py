@@ -106,3 +106,38 @@ class Reference:
             updated.append(np.insert(old, idx[~replace], values[~replace], axis=0))
 
         self._update(*tuple(updated))
+        
+    def get_progress(self, pos, prev_progress=None, search_range_s=(0.3, 1.0)):
+        """
+        Progress of the point on the path closest to pos.
+
+        Args:
+            pos: (3,) query position.
+            prev_progress: If given, only the path within search_range_s around it is searched. This
+                avoids jumping to other sections of the path, e.g. where the track crosses itself.
+            search_range_s: (behind, ahead) [m] search window around prev_progress.
+
+        Returns:
+            Progress s [m] of the closest point on the path.
+        """
+        s = self.path.x
+        pts = self._dense_knots
+
+        lo, hi = 0, len(s) - 1
+        if prev_progress is not None:
+            behind, ahead = search_range_s
+            # index of the segment containing the lower bound, not the first knot after it (otherwise
+            # the result is always > prev_progress and creeps forward even if the drone stands still)
+            lo = np.clip(np.searchsorted(s, prev_progress - behind, side="right") - 1, 0, len(s) - 2)
+            hi = np.clip(np.searchsorted(s, prev_progress + ahead, side="right") - 1, lo + 1, len(s) - 1)
+
+        # project onto every segment of the dense polyline within the window
+        a = pts[lo:hi]
+        ab = pts[lo + 1:hi + 1] - a
+        t = np.sum((pos - a) * ab, axis=1) / np.maximum(np.sum(ab * ab, axis=1), 1e-12)
+        t = np.clip(t, 0.0, 1.0)
+        dist = la.norm(a + t[:, None] * ab - pos, axis=1)
+
+        i = np.argmin(dist)
+        return s[lo + i] + t[i] * (s[lo + i + 1] - s[lo + i])
+        
