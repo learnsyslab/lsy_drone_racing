@@ -9,12 +9,10 @@ import time
 import numpy as np
 import numpy.linalg as la
 from scipy.spatial.transform import Rotation as R
-from scipy.interpolate import BPoly, PPoly, CubicSpline
+from scipy.interpolate import PPoly
 
-from dataclasses import dataclass
 
 from lsy_drone_racing.control.utils.utils import (
-    obs_to_gate_state,
     drone_collision_radius,
     obstacle_radius,
     dist_to_segment
@@ -82,11 +80,13 @@ class SplinePlanner:
             # update gates visited
             self.gates_visited = obs["gates_visited"].copy()
             self._handle_gates_update(obs, updated_gates)
-  
+
         if updated_obstacles.size > 0:
             # update obstacles visited
             self.obstacles_visited = obs["obstacles_visited"].copy()
             self._handle_obstacle_update(obs, updated_obstacles)
+        
+        #TODO handle points close to plane as well (+ joint handling of obstacles and gate frames)
         
         # return path segment to track
         return self._current_reference
@@ -98,30 +98,26 @@ class SplinePlanner:
         """
         assert updated_gates.size > 0
         forward, other = self.gate_plane_crossings(obs, updated_gates)
-
-        updated = None
         
         # project to closest point inside
         safe_points = self.closest_safe_point_inside(forward, obs)
         self._current_reference.update(safe_points, forward["s"])
         
-        """ TODO handle points close to plane as well
-        safe_points, _ = self.closest_safe_point_outside(other, obs)
-        tangents = self._current_reference.path(other["s"], 1)
-        accs = self._current_reference.path(other["s"], 2)
-           
-        # insert / replace with safe points
-        updated = self.insert_waypoints(safe_points, tangents, accs, other["s"])
-
-        if updated is not None:
-            self._current_reference = self.build_reference(*updated)
-        """
+        inside_mask = np.max(np.abs(other["offset"]), axis=-1) <= 0.2 + 0.08
+    
+        if inside_mask.any():
+            safe_points = self.closest_safe_point_inside(other, obs)
+            self._current_reference.update(safe_points[inside_mask], other["s"][inside_mask])
         
-    def _handle_obstacle_update(self, obs, new_obstacles, eps=0.03):
+        safe_points, _ = self.closest_safe_point_outside(other, obs)
+        self._current_reference.update(safe_points[~inside_mask], other["s"][~inside_mask])
+        
+    def _handle_obstacle_update(self, obs, new_obstacles, eps=0.01):
+        # TODO: only handles collision of the path in one place
         obstacle_pos = obs["obstacles_pos"][new_obstacles]
         ref = self._current_reference
              
-        dist = self.min_distance_to_obstacles(obstacle_pos, ref._dense_knots)
+        dist = self.min_distance_to_obstacles(obstacle_pos, ref._dense_knots)[..., 0]
         path_collides = (dist < self.obstacle_clearance).any()
         
         if not path_collides:
@@ -131,12 +127,11 @@ class SplinePlanner:
         
         closest = ref._dense_knots[min_i]
         dir_vec = (closest - obstacle_pos) * np.array([1.0, 1.0, 0.0])
-        dir_vec = dir_vec / la.norm(dir_vec)
+        dir_vec = dir_vec / la.norm(dir_vec, axis=-1)[..., None]
         
         clearance = self.obstacle_clearance + eps
         
         safe_points = closest + clearance * dir_vec
-        
         s = ref.path.x[min_i]
         
         self._current_reference.update(safe_points, s)
