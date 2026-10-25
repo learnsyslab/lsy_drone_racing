@@ -99,24 +99,26 @@ def rollout(x0: Array, U: Array, params: dict, dt: float) -> Array:
 COST_CONSTANTS = {
     "deviation_tolerance": 0.13,  # Tolerance in meters for an acceptable deviation from the reference trajectory
     "smoothness_tolerance": 1.0,  # Tolerance for control smoothness in multiples of sigma
-    "gate_tolerance": 0.1,  # Tolerance in meters for an acceptable deviation from the gate's center
+    "gate_tolerance": 0.05,  # Tolerance in meters for an acceptable deviation from the gate's center
     "gate_slab": 0.1,  # Half-thickness in meters around a gate's plane in which the gate is checked
     "gate_frame_limit": 0.45,  # Offset in meters from the gate's center beyond which the frame is cleared
-    "obstacle_radius": 0.25,  # Radius in meters of the penalty tube around an obstacle
+    "obstacle_radius": 0.2,  # Radius in meters of the penalty tube around an obstacle
 }
 
 COST_WEIGHTS = {
-    "deviation_weight": 0.3,  # Weight for deviation from reference trajectory
-    "smoothness_weight": 0.1,  # Weight for control smoothness
-    "gate_weight": 3.0,  # Weight for gate pass / collision / miss
-    "obstacle_weight": 2.0,  # Weight for coming close to an obstacle
+    "deviation_weight": 0.2,  # Weight for deviation from reference trajectory
+    "smoothness_weight": 0.01,  # Weight for control smoothness
+    "gate_weight": 4.0,  # Weight for gate pass / collision / miss
+    "obstacle_weight": 3.0,  # Weight for coming close to an obstacle
 }
 
 MLC_CONSTANTS = {
     "v_max": 6.0,
-    "a_long_max": 1.5, # most important in the current setup for speed
-    "a_lat_max": 4.0,
-    "a_brake_max": 4.0,
+    "a_long_max": 8.0, # most important in the current setup for speed
+    "a_lat_max": 5.0,
+    "a_brake_max": 7.0,
+    "v_gate_max": 1.0,  # speed cap at a gate's center
+    "gate_window": 1.0,  # progress in meters before and after a gate over which the cap applies
 }
 
 
@@ -353,9 +355,9 @@ class AttitudeMPPI(Controller):
         super().__init__(obs, info, config)
         self._freq = config.env.freq
         self._dt = 1 / self._freq
-        self._horizon = 20  # planning steps, 0.5 s at 50 Hz
-        self._n_samples = 512  # sampled control sequences per step
-        self._sigma = jnp.array([0.15, 0.15, 0.0, 0.05]) * 1.5  # noise std: roll, pitch, yaw, thrust
+        self._horizon = 30  # planning steps, 0.5 s at 50 Hz
+        self._n_samples = 1024  # sampled control sequences per step
+        self._sigma = jnp.array([0.15, 0.15, 0.0, 0.05]) * 2.0  # noise std: roll, pitch, yaw, thrust
         self._target_ess = 0.05  # fraction of samples that should effectively contribute to the update
         self._lam = float("nan")  # softmin temperature, adapted every step to reach the target ESS
         self._params = load_params(Dynamics.so_rpy, config.sim.drone)
@@ -370,8 +372,10 @@ class AttitudeMPPI(Controller):
             v_max=MLC_CONSTANTS["v_max"],
             a_long_max=MLC_CONSTANTS["a_long_max"],
             a_lat_max=MLC_CONSTANTS["a_lat_max"],
-            a_brake_max=MLC_CONSTANTS["a_brake_max"]
-        ) 
+            a_brake_max=MLC_CONSTANTS["a_brake_max"],
+            v_gate_max=MLC_CONSTANTS["v_gate_max"],
+            gate_window=MLC_CONSTANTS["gate_window"],
+        )
 
 
         # n_samples fixes an array shape, so it must be static for jit
