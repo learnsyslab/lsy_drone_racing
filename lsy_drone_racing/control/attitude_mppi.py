@@ -178,6 +178,35 @@ def trajectory_cost(
 
     return total_cost
 
+def adaptive_lambda(costs: Array, target_ess: float, n_iter: int = 30) -> Array:
+    """Find the softmin temperature at which the weights reach a target effective sample size.
+
+    The ESS grows monotonically with the temperature, so it is found by bisection in log-space.
+
+    Args:
+        costs: Rollout costs with shape (n_samples,).
+        target_ess: Desired effective sample size as a fraction of n_samples, in (0, 1].
+        n_iter: Number of bisection steps.
+
+    Returns:
+        The temperature lambda.
+    """
+    costs = costs - jnp.min(costs)
+    target = target_ess * costs.shape[0]
+
+    def ess(log_lam):
+        weights = jax.nn.softmax(-costs / jnp.exp(log_lam))
+        return 1 / jnp.sum(weights ** 2)
+
+    def bisect(_, bounds):
+        lo, hi = bounds
+        mid = 0.5 * (lo + hi)
+        too_peaked = ess(mid) < target
+        return jnp.where(too_peaked, mid, lo), jnp.where(too_peaked, hi, mid)
+
+    lo, hi = jax.lax.fori_loop(0, n_iter, bisect, (jnp.log(1e-6), jnp.log(1e6)))
+    return jnp.exp(0.5 * (lo + hi))
+
 
 def mppi_update(
         key: Array,
@@ -191,12 +220,13 @@ def mppi_update(
         dt: float,
         n_samples: int,
         sigma: Array,
-        lam: float,
-) -> tuple[Array, Array]:
+        target_ess: float,
+) -> tuple[Array, Array, Array]:
     """Perform one MPPI iteration.
 
     Samples `n_samples` perturbed control sequences around `U_nom`, simulates and scores them, and
-    returns the nominal sequence updated with the softmin-weighted perturbations.
+    returns the nominal sequence updated with the softmin-weighted perturbations. The softmin
+    temperature is chosen every step such that the weights reach the target effective sample size.
 
     Args:
         key: JAX PRNG key.
@@ -210,11 +240,12 @@ def mppi_update(
         dt: Integration step in seconds.
         n_samples: Number of sampled control sequences.
         sigma: Per-channel standard deviation of the sampling noise with shape (4,).
-        lam: Temperature of the softmin weighting.
+        target_ess: Desired effective sample size as a fraction of n_samples.
 
     Returns:
         - U_new: The updated nominal control sequence with shape (H, 4).
         - ESS: Effective sample size (ESS) for debugging and logging.
+        - lam: The chosen softmin temperature for debugging and logging.
 
     """
     samples = jax.random.normal(key, (n_samples, len(U_nom), 4), dtype=jnp.float32)
@@ -253,6 +284,7 @@ def mppi_update(
     )
 
     # weighting the runs by costs
+    lam = adaptive_lambda(costs, target_ess)
     weights = jax.nn.softmax(-costs / lam)
 
     # calculate effective sample size (ESS) for debugging and logging
@@ -260,7 +292,7 @@ def mppi_update(
 
     U_new = jnp.sum(weights[:, None, None] * sampled_actions, axis=0)
 
-    return U_new, ess
+    return U_new, ess, lam
 
 
 def build_reference(
@@ -308,8 +340,9 @@ class AttitudeMPPI(Controller):
         self._dt = 1 / self._freq
         self._horizon = 25  # planning steps, 0.5 s at 50 Hz
         self._n_samples = 512  # sampled control sequences per step
-        self._sigma = jnp.array([0.15, 0.15, 0.0, 0.05]) * 1.1  # noise std: roll, pitch, yaw, thrust
-        self._lam = 0.05  # temperature of the softmin weighting
+        self._sigma = jnp.array([0.15, 0.15, 0.0, 0.05]) * 1.5  # noise std: roll, pitch, yaw, thrust
+        self._target_ess = 0.05  # fraction of samples that should effectively contribute to the update
+        self._lam = float("nan")  # softmin temperature, adapted every step to reach the target ESS
         self._params = load_params(Dynamics.so_rpy, config.sim.drone)
         # Hover command, inverted from force = acc_coef + cmd_f_coef * cmd
         self._hover_thrust = float(
@@ -362,7 +395,7 @@ class AttitudeMPPI(Controller):
             self._dt,
             self._n_samples,
             self._sigma,
-            self._lam,
+            self._target_ess,
         )
 
     def _state(self, obs: dict[str, NDArray[np.floating]]) -> Array:
@@ -391,7 +424,7 @@ class AttitudeMPPI(Controller):
 
         # Fresh noise every step: split the key, keep one half and use the other
         self._key, subkey = jax.random.split(self._key)
-        U_new, ess = self._update(
+        U_new, ess, lam = self._update(
             subkey,
             self._state(obs),
             self._U_nom,
@@ -403,10 +436,11 @@ class AttitudeMPPI(Controller):
             self._dt,
             self._n_samples,
             self._sigma,
-            self._lam,
+            self._target_ess,
         )
         self._ess = float(ess)
-
+        self._lam = float(lam)
+        
         self._u_prev = U_new[0]
         # Shift by one step for the next call and repeat the last input to fill the end
         self._U_nom = jnp.concatenate((U_new[1:], U_new[-1:]))
