@@ -23,10 +23,16 @@ from crazyflow.dynamics.utils.rotation import ang_vel2rpy_rates
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 
+from crazyflow.sim.visualize import draw_line
+
 from lsy_drone_racing.control import Controller
+from lsy_drone_racing.control.mid_level.mid_level_controller import MidLevelController
+from lsy_drone_racing.control.planner.reference import Reference
+from lsy_drone_racing.control.planner.splines import SplinePlanner
 
 if TYPE_CHECKING:
     from jax import Array
+    from crazyflow import Sim
     from numpy.typing import NDArray
 
 
@@ -91,16 +97,26 @@ def rollout(x0: Array, U: Array, params: dict, dt: float) -> Array:
 
 
 COST_CONSTANTS = {
-    "deviation_weight": 1.0,  # Weight for deviation from reference trajectory
-    "deviation_tolerance": 0.1,  # Tolerance in meters for an acceptable deviation from the reference trajectory
-    "smoothness_weight": 0.1,  # Weight for control smoothness
-    "smoothness_tolerance": 1,  # Tolerance for control smoothness in multiples of sigma
-    "gate_weight": 2.0,  # Weight for gate pass / collision / miss
-    "gate_tolerance": 0.05,  # Tolerance in meters for an acceptable deviation from the gate's center
+    "deviation_tolerance": 0.13,  # Tolerance in meters for an acceptable deviation from the reference trajectory
+    "smoothness_tolerance": 1.0,  # Tolerance for control smoothness in multiples of sigma
+    "gate_tolerance": 0.1,  # Tolerance in meters for an acceptable deviation from the gate's center
     "gate_slab": 0.1,  # Half-thickness in meters around a gate's plane in which the gate is checked
     "gate_frame_limit": 0.45,  # Offset in meters from the gate's center beyond which the frame is cleared
+    "obstacle_radius": 0.25,  # Radius in meters of the penalty tube around an obstacle
+}
+
+COST_WEIGHTS = {
+    "deviation_weight": 0.3,  # Weight for deviation from reference trajectory
+    "smoothness_weight": 0.1,  # Weight for control smoothness
+    "gate_weight": 3.0,  # Weight for gate pass / collision / miss
     "obstacle_weight": 2.0,  # Weight for coming close to an obstacle
-    "obstacle_radius": 0.2,  # Radius in meters of the penalty tube around an obstacle
+}
+
+MLC_CONSTANTS = {
+    "v_max": 6.0,
+    "a_long_max": 1.5, # most important in the current setup for speed
+    "a_lat_max": 4.0,
+    "a_brake_max": 4.0,
 }
 
 
@@ -143,7 +159,7 @@ def trajectory_cost(
     control_diff /= COST_CONSTANTS["smoothness_tolerance"] * jnp.maximum(1e-6, sigma)
     smoothness_cost = jnp.sum(jnp.linalg.norm(control_diff, axis=1))
 
-    # Cost for gate collision: states near a gate's plane must be close to its center, for every gate
+    # Cost for gate collisi0 on: states near a gate's plane must be close to its center, for every gate
     # get gate_pos and gate_normal
     gate_pos = gates[:, :3]  # Extract gate positions
     gate_normal = gates[:, 3:]  # Extract gate normal vectors
@@ -162,7 +178,7 @@ def trajectory_cost(
     # cost function based on distance to gate center
     distance_further_than_tolerance = jnp.maximum(gate_plane_max_distance / COST_CONSTANTS["gate_tolerance"] - 1, 0)
     gate_cost = jnp.sum(jnp.where(frame_mask, distance_further_than_tolerance ** 2, 0))
-
+    
     # Cost for coming close to an obstacle: tube around each pole, checked in the x-y plane
     obstacle_xy_distance = jnp.linalg.norm(pos[:, None, :2] - obstacles_pos[None, :, :2], axis=-1)
     # 0 outside the tube radius, rising to 1 at the pole's axis
@@ -170,10 +186,10 @@ def trajectory_cost(
     obstacle_cost = jnp.sum(tube_penetration ** 2)
 
     total_cost = (
-            COST_CONSTANTS["deviation_weight"] * deviation_cost
-            + COST_CONSTANTS["smoothness_weight"] * smoothness_cost
-            + COST_CONSTANTS["gate_weight"] * gate_cost
-            + COST_CONSTANTS["obstacle_weight"] * obstacle_cost
+            COST_WEIGHTS["deviation_weight"] * deviation_cost
+            + COST_WEIGHTS["smoothness_weight"] * smoothness_cost
+            + COST_WEIGHTS["gate_weight"] * gate_cost
+            + COST_WEIGHTS["obstacle_weight"] * obstacle_cost
     )  # Add other cost components if needed
 
     return total_cost
@@ -323,7 +339,6 @@ def build_reference(
     extension = np.hstack((ref[-1, :3] + steps * ref[-1, 3:], np.tile(ref[-1, 3:], (n_extend, 1))))
     return np.vstack((ref, extension))
 
-
 class AttitudeMPPI(Controller):
     """Sampling-based MPC using the collective thrust and attitude interface."""
 
@@ -338,7 +353,7 @@ class AttitudeMPPI(Controller):
         super().__init__(obs, info, config)
         self._freq = config.env.freq
         self._dt = 1 / self._freq
-        self._horizon = 25  # planning steps, 0.5 s at 50 Hz
+        self._horizon = 20  # planning steps, 0.5 s at 50 Hz
         self._n_samples = 512  # sampled control sequences per step
         self._sigma = jnp.array([0.15, 0.15, 0.0, 0.05]) * 1.5  # noise std: roll, pitch, yaw, thrust
         self._target_ess = 0.05  # fraction of samples that should effectively contribute to the update
@@ -349,28 +364,15 @@ class AttitudeMPPI(Controller):
             (self._params["mass"] * -self._params["gravity_vec"][-1] - self._params["acc_coef"])
             / self._params["cmd_f_coef"]
         )
+        
+        self._mlc = MidLevelController(
+            SplinePlanner(obs, config),
+            v_max=MLC_CONSTANTS["v_max"],
+            a_long_max=MLC_CONSTANTS["a_long_max"],
+            a_lat_max=MLC_CONSTANTS["a_lat_max"],
+            a_brake_max=MLC_CONSTANTS["a_brake_max"]
+        ) 
 
-        start_pos = obs["pos"]
-        waypoints = np.array(
-            [
-                start_pos,
-                [-1.0, 0.55, 0.4],
-                [0.3, 0.35, 0.7],
-                [1.3, -0.15, 0.9],
-                [0.85, 0.85, 1.2],
-                [-0.5, -0.05, 0.7],
-                [-1.15, -0.2, 0.8],
-                [-0.9, 0.1, 1.2],
-                [0.0, -0.75, 1.2],
-                [1.2, -0.15, 1.2],
-                [1.05, 0.75, 1.2],
-                [0.25, 1.25, 1.2],
-            ]
-        )
-        self._t_total = 18.75  # time to fly the whole reference
-        # The extra horizon + 1 rows keep the last window full once the reference time is over
-        self._ref = build_reference(waypoints, self._t_total, self._freq, self._horizon + 1)
-        self._tick_max = int(self._t_total * self._freq)
 
         # n_samples fixes an array shape, so it must be static for jit
         self._update = jax.jit(mppi_update, static_argnames=("n_samples",))
@@ -379,8 +381,9 @@ class AttitudeMPPI(Controller):
         self._U_nom = jnp.tile(jnp.array([0.0, 0.0, 0.0, self._hover_thrust]), (self._horizon, 1))
         self._u_prev = self._U_nom[0]
         self._ess = float("nan")
-        self._tick = 0
         self._finished = False
+        
+        self._ref = self._mlc.get_trajectory(obs, self._horizon, self._dt)
 
         # Warm-up call so the jit compilation happens here and not in the first control step
         self._update(
@@ -388,7 +391,7 @@ class AttitudeMPPI(Controller):
             self._state(obs),
             self._U_nom,
             self._u_prev,
-            self._ref[: self._horizon + 1],
+            self._ref,
             self._get_gates_pos_and_normal(obs),
             jnp.asarray(obs["obstacles_pos"]),
             self._params,
@@ -417,11 +420,12 @@ class AttitudeMPPI(Controller):
         Returns:
             The command [roll, pitch, yaw, thrust] as a numpy array.
         """
-        if self._tick >= self._tick_max:
+        
+        if self._mlc._current_progress >= self._mlc._planner._current_reference.length:
             self._finished = True
-        # Reference window for the current step and the whole horizon
-        ref = self._ref[self._tick: self._tick + self._horizon + 1]
-
+        
+        self._ref = self._mlc.get_trajectory(obs, self._horizon, self._dt)
+        
         # Fresh noise every step: split the key, keep one half and use the other
         self._key, subkey = jax.random.split(self._key)
         U_new, ess, lam = self._update(
@@ -429,7 +433,7 @@ class AttitudeMPPI(Controller):
             self._state(obs),
             self._U_nom,
             self._u_prev,
-            ref,
+            self._ref,
             self._get_gates_pos_and_normal(obs),
             jnp.asarray(obs["obstacles_pos"]),
             self._params,
@@ -448,29 +452,35 @@ class AttitudeMPPI(Controller):
         return np.asarray(U_new[0], dtype=np.float32)
 
     def step_callback(
-            self,
-            action: NDArray[np.floating],
-            obs: dict[str, NDArray[np.floating]],
-            reward: float,
-            terminated: bool,
-            truncated: bool,
-            info: dict,
+        self,
+        action: NDArray[np.floating],
+        obs: dict[str, NDArray[np.floating]],
+        reward: float,
+        terminated: bool,
+        truncated: bool,
+        info: dict,
     ) -> bool:
-        """Advance the internal step counter.
+        """Increment the tick counter.
 
         Returns:
             True if the controller is finished, False otherwise.
         """
-        self._tick += 1
-        return self._finished
-
+        return self._finished | int(obs["n_gates_passed"]) == len(obs["gate_sequence"])
+    
     def episode_callback(self):
         """Reset the internal state."""
-        self._tick = 0
         self._finished = False
         self._U_nom = jnp.tile(jnp.array([0.0, 0.0, 0.0, self._hover_thrust]), (self._horizon, 1))
         self._u_prev = self._U_nom[0]
 
+    def render_callback(self, sim: Sim):
+        hlc = self._mlc._planner
+        reference_path = hlc._current_reference.path(np.linspace(0, hlc._current_reference.length, 100))
+        reference_traj = self._ref[:, :3]
+        
+        draw_line(sim, reference_path, rgba=(0.0, 1.0, 0.0, 1.0))
+        draw_line(sim, reference_traj, rgba=(1.0, 0.0, 0.0, 1.0))
+    
     def _get_gates_pos_and_normal(self, obs: dict[str, NDArray[np.floating]]) -> Array:
         """Return the position and the normal vector of every gate with shape (n_gates, 6)."""
         # The gate normal is the gate's local x-axis in the world frame
