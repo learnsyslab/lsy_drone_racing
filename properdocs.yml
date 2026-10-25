@@ -48,6 +48,8 @@ nav:
     - Simulation: challenge/simulation.md
     - Deployment: challenge/deployment.md
     - Online Competition: challenge/online_competition.md
+  - Planning:
+    - Fast Re-planning: planning/fast_replanning.md
   - Python API:
     - Control:
       - control/index.md
@@ -55,6 +57,8 @@ nav:
       - control.state_controller: control/state_controller.md
       - control.attitude_controller: control/attitude_controller.md
       - control.attitude_mpc: control/attitude_mpc.md
+      - control.path_planning: control/path_planning.md
+      - control.my_controller: control/my_controller.md
     - Environments:
       - envs/index.md
       - envs.drone_race: envs/drone_race.md

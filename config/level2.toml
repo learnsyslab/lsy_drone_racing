@@ -4,7 +4,7 @@
 # | :-----------------: | :----------------------------: | :-------------------------: | :---------------: | :-------------------: |
 # | `level2.toml`       | *Yes*                          | *Yes*                       | *No*              | Learning, re-planning |
 [controller]
-file = "state_controller.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
+file = "my_controller.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
 
 [deploy]
 ### Settings only relevant for deployment
@@ -45,7 +45,7 @@ id = "DroneRacing-v0"   # "DroneRacing-v0" for single races, "MultiDroneRacing-v
 seed = -1               # -1 for random seeds or a non-zero integer for reproducibility
 freq = 50               # Frequency of the environment's step function, in Hz
 sensor_range = 0.7      # Range at which the exact location of gates and obstacles become visible to the drone. Objects that are not in the drone's sensor range report their nominal position.
-control_mode = "state"  # Control mode of the environment. Can be either "state" or "attitude"
+control_mode = "attitude"  # Control mode of the environment. Can be either "state" or "attitude"
 
 [env.track]
 # Full track radomization. When activated, the position (x & y) and orientation (yaw) 

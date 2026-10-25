@@ -14,6 +14,10 @@ plots/
 c_generated_code/
 /build
 
+# JAX compilation cache. It normally lives in the system temp directory, but tempfile falls back to
+# the working directory when that is not writable.
+lsy_drone_racing_jax/
+
 # ProperDocs build output
 site/
 

@@ -8,9 +8,9 @@ Run as:
 
     $ python scripts/debug_run.py --config level0.toml --controller state_controller.py
 
-or from pixi (the ``default`` environment does not install crazyflow, use ``tests`` or ``gpu``):
+inside the repository's pixi environment, or from outside of it with
 
-    $ pixi run -e tests python scripts/debug_run.py --config level0.toml
+    $ pixi run python scripts/debug_run.py --config level0.toml --controller my_controller.py
 
 For GPU execution use the ``gpu`` environment and pass ``--device gpu`` explicitly. The environment
 defaults to CPU and the TOML config cannot change that, so the ``gpu`` environment alone would still
@@ -408,6 +408,7 @@ def main(
     out_dir: str = "plots",
     verbose: bool = True,
     device: str = "cpu",
+    control_mode: str | None = None,
 ):
     """Run a controller headless and report why each episode ended.
 
@@ -422,18 +423,23 @@ def main(
         verbose: Print per-gate-pass margins.
         device: ``"cpu"`` or ``"gpu"``. The environment defaults to CPU and the TOML config cannot
             change this, so it must be requested explicitly.
+        control_mode: Override the config's ``env.control_mode`` (``"state"`` or ``"attitude"``).
+            Needed when a config ships with a mode that does not match the controller's action
+            space, e.g. running the attitude-based MPCC on a ``"state"`` config.
     """
     logging.basicConfig(level=logging.WARNING)
     device = resolve_device(device)
     config_path = REPO_ROOT / "config" / config
     cfg = load_config(config_path)
     cfg.sim.render = False  # Never open a window in this harness
+    if control_mode is not None:
+        cfg.env.control_mode = control_mode
     controller_file = controller or cfg.controller.file
     controller_cls = load_controller(REPO_ROOT / "lsy_drone_racing/control" / controller_file)
 
     print(
         f"config={config}  controller={controller_file}  runs={n_runs}  seed0={seed}  "
-        f"device={device}"
+        f"device={device}  control_mode={cfg.env.control_mode}"
     )
     results = []
     for i in range(n_runs):
