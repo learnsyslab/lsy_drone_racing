@@ -7,7 +7,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
 | 🥇 | Überflieger | 3.343 | 80 | 3 |
-| 🥈 | BreakFaster | 4.871 | 80 | 3 |
+| 🥈 | BreakFaster | 3.343 | 70 | 4 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
 | 4 | Narges and Eram | 8.478 | 85 | 3 |
 | 5 | QuadroBlade | 12.724 | 50 | 1 |
@@ -25,7 +25,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | - | Del Lobos | N/A | 0 | 0 |
 | - | SkyX | N/A | 0 | 0 |
 | - | Nova-YJ | N/A | 0 | 0 |
-| - | Cowhors3 | N/A | 0 | 0 |
+| - | XJI | N/A | 0 | 0 |
 | - | Quiet Donuts | N/A | 0 | 0 |
 | - | multi-drone RL (MAADR) | N/A | 0 | 0 |
 
