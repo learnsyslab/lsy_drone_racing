@@ -115,3 +115,6 @@ github = "mathurin-lab"
 [team18]
 name = "multi-drone RL (MAADR)"
 github = "handiener"
+time = 8.912500000000001
+success_rate = 0.8
+submissions = 1

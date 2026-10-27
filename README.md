@@ -10,12 +10,13 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | BreakFaster | 3.343 | 70 | 4 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
 | 4 | Narges and Eram | 8.478 | 85 | 3 |
-| 5 | Kalman Sutra | 9.782 | 55 | 2 |
-| 6 | QuadroBlade | 12.724 | 50 | 1 |
-| 7 | Terminal Velocity | 15.422 | 60 | 3 |
-| 8 | Radu (TA) | 18.457 | 60 | 2 |
-| 9 | Marcel (TA) | 26.626 | 50 | 7 |
-| 10 | Martin (TA) | 27.082 | 85 | 1 |
+| 5 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 6 | Kalman Sutra | 9.782 | 55 | 2 |
+| 7 | QuadroBlade | 12.724 | 50 | 1 |
+| 8 | Terminal Velocity | 15.422 | 60 | 3 |
+| 9 | Radu (TA) | 18.457 | 60 | 2 |
+| 10 | Marcel (TA) | 26.626 | 50 | 7 |
+| 11 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | Royal Army | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
@@ -27,7 +28,6 @@ This competition is only for students of the ADR course at TUM. Students have to
 | - | Nova-YJ | N/A | 0 | 0 |
 | - | XJI | N/A | 0 | 0 |
 | - | Quiet Donuts | N/A | 0 | 0 |
-| - | multi-drone RL (MAADR) | N/A | 0 | 0 |
 
 ## Hall of fame 🏆
 * [Summer 2026 Leaderboard](./archive/summer26/README.md)
