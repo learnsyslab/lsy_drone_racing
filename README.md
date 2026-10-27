@@ -9,10 +9,10 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥇 | Überflieger | 3.343 | 80 | 3 |
 | 🥈 | BreakFaster | 3.343 | 70 | 4 |
 | 🥉 | Justin & Finn | 5.917 | 75 | 1 |
-| 4 | Narges and Eram | 8.478 | 85 | 3 |
-| 5 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 6 | Kalman Sutra | 9.782 | 55 | 2 |
-| 7 | QuadroBlade | 12.724 | 50 | 1 |
+| 4 | QuadroBlade | 8.124 | 55 | 2 |
+| 5 | Narges and Eram | 8.478 | 85 | 3 |
+| 6 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 7 | Kalman Sutra | 9.782 | 55 | 2 |
 | 8 | Terminal Velocity | 15.422 | 60 | 3 |
 | 9 | Radu (TA) | 18.457 | 60 | 2 |
 | 10 | Marcel (TA) | 26.626 | 50 | 7 |
