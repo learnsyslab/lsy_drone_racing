@@ -33,9 +33,9 @@ submissions = 3
 [team2]
 name = "BreakFaster"
 github = "mahdisafari761"
-time = 3.3428571428571425
-success_rate = 0.7
-submissions = 4
+time = 3.331666666666667
+success_rate = 0.6
+submissions = 5
 
 [team3]
 name = "QuadroBlade"
