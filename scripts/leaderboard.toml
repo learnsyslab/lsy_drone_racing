@@ -74,6 +74,9 @@ github = "delvinbamerni-del"
 [team10]
 name = "Kalman Sutra"
 github = "spalder"
+time = 20.94
+success_rate = 0.55
+submissions = 1
 
 [team11]
 name = "Narges and Eram"

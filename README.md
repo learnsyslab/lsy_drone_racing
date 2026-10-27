@@ -13,15 +13,15 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 5 | QuadroBlade | 12.724 | 50 | 1 |
 | 6 | Terminal Velocity | 15.422 | 60 | 3 |
 | 7 | Radu (TA) | 18.457 | 60 | 2 |
-| 8 | Marcel (TA) | 26.626 | 50 | 7 |
-| 9 | Martin (TA) | 27.082 | 85 | 1 |
+| 8 | Kalman Sutra | 20.940 | 55 | 1 |
+| 9 | Marcel (TA) | 26.626 | 50 | 7 |
+| 10 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | Royal Army | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
 | - | Barbie Drone | N/A | 0 | 0 |
-| - | Kalman Sutra | N/A | 0 | 0 |
 | - | Del Lobos | N/A | 0 | 0 |
 | - | SkyX | N/A | 0 | 0 |
 | - | Nova-YJ | N/A | 0 | 0 |
