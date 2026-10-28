@@ -62,7 +62,12 @@ markers = ["unit", "integration"]
 ########################
 [tool.pixi.workspace]
 channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "win-64"]
+# jax-mps >= 0.11 only has wheels for macOS 14+
+platforms = [
+    "linux-64",
+    { name = "osx-arm64-14", platform = "osx-arm64", macos = "14.0" },
+    "win-64",
+]
 
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
@@ -99,6 +104,16 @@ scripts = ["tools/setup_acados.bat"]
 [tool.pixi.feature.gpu]
 platforms = ["linux-64"]
 
+# Experimental JAX backend for Apple Silicon GPUs (Metal)
+[tool.pixi.feature.mps]
+platforms = ["osx-arm64-14"]
+
+[tool.pixi.feature.mps.pypi-dependencies]
+jax-mps = "*"
+
+[tool.pixi.feature.mps.activation.env]
+JAX_PLATFORMS = "cpu,mps"  # Use CPU by default, but keep MPS available
+
 [tool.pixi.tasks]
 evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the controller" }
 
@@ -109,6 +124,7 @@ deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
 gpu = { features = ["sim", "gpu"], solve-group = "default" }
 tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
 gpu-tests = { features = ["sim", "rl", "gpu", "tests"], solve-group = "default" }
+mps = { features = ["sim", "mps"], solve-group = "default" }
 gamepad = { features = ["sim", "gamepad"], solve-group = "default" }
 profile = { features = ["sim", "profile", "gpu"], solve-group = "default" }
 docs = { features = ["docs"] }

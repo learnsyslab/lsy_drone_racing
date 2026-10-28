@@ -13,6 +13,7 @@ We recommend using **Ubuntu (x86-64)**, which supports all environments listed b
 | `default` | CPU simulation and controller development | ✅ | ✅ | ✅ |
 | `deploy` | Real-drone deployment with ROS 2 | ✅ | ❌ | ❌ |
 | `gpu` | CUDA simulation | ✅ | ❌ | ❌ |
+| `mps` | Apple Silicon GPU simulation (experimental) | ❌ | ✅ | ❌ |
 
 Use `default` for simulation and `deploy` for real-drone deployment. Follow the installation steps below to set up the appropriate environment.
 
@@ -164,6 +165,19 @@ pixi shell -e gpu
 ```bash
 pip install -e .[rl]
 ```
+
+### Apple Silicon GPU Simulation (Experimental, macOS Only)
+
+On Apple Silicon (macOS 14+), the `mps` environment can run the simulation on the GPU via Metal using [jax-mps](https://github.com/tillahoffmann/jax-mps):
+
+```bash
+pixi shell -e mps
+```
+
+The CPU remains the default JAX device, so you have to request the GPU explicitly by creating the environment with `device="mps"`. MPS is mainly useful for large, fully JAX-based training pipelines. For single or few environments, the CPU is usually faster.
+
+!!! warning
+    This backend is experimental and not covered by our tests.
 
 ### Running Tests
 
