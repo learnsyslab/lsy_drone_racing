@@ -20,10 +20,9 @@ import numpy as np
 from crazyflow.dynamics import Dynamics, load_params
 from crazyflow.dynamics.so_rpy.dynamics import dynamics_euler
 from crazyflow.dynamics.utils.rotation import ang_vel2rpy_rates
+from crazyflow.sim.visualize import draw_line, draw_points
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
-
-from crazyflow.sim.visualize import draw_line
 
 from lsy_drone_racing.control import Controller
 from lsy_drone_racing.control.mid_level.mid_level_controller import MidLevelController
@@ -31,8 +30,8 @@ from lsy_drone_racing.control.planner.reference import Reference
 from lsy_drone_racing.control.planner.splines import SplinePlanner
 
 if TYPE_CHECKING:
-    from jax import Array
     from crazyflow import Sim
+    from jax import Array
     from numpy.typing import NDArray
 
 
@@ -226,6 +225,17 @@ def adaptive_lambda(costs: Array, target_ess: float, n_iter: int = 30) -> Array:
     return jnp.exp(0.5 * (lo + hi))
 
 
+N_VIS_BEST = 10  # lowest-cost rollouts that are drawn
+N_VIS_RANDOM = 30  # additional evenly strided rollouts that are drawn
+
+
+def speed_to_rgba(speed: NDArray, alpha: float = 1.0) -> NDArray:
+    """Map speeds to colors on a blue (slow) to red (fast) ramp, normalized to the speed range."""
+    span = np.ptp(speed)
+    s = (speed - speed.min()) / span if span > 0 else np.zeros_like(speed)
+    return np.stack((s, 1 - np.abs(2 * s - 1), 1 - s, np.full_like(s, alpha)), axis=-1)
+
+
 def mppi_update(
         key: Array,
         x0: Array,
@@ -239,7 +249,7 @@ def mppi_update(
         n_samples: int,
         sigma: Array,
         target_ess: float,
-) -> tuple[Array, Array, Array]:
+) -> tuple[Array, Array, Array, Array, Array, Array]:
     """Perform one MPPI iteration.
 
     Samples `n_samples` perturbed control sequences around `U_nom`, simulates and scores them, and
@@ -264,6 +274,11 @@ def mppi_update(
         - U_new: The updated nominal control sequence with shape (H, 4).
         - ESS: Effective sample size (ESS) for debugging and logging.
         - lam: The chosen softmin temperature for debugging and logging.
+        - vis_pos: Positions of the visualized rollouts with shape (N_VIS_BEST + N_VIS_RANDOM,
+          H + 1, 3).
+        - vis_weights: Softmin weights of the visualized rollouts with shape
+          (N_VIS_BEST + N_VIS_RANDOM,).
+        - mean_path: Positions of the rollout of `U_new` with shape (H + 1, 3).
 
     """
     samples = jax.random.normal(key, (n_samples, len(U_nom), 4), dtype=jnp.float32)
@@ -310,7 +325,16 @@ def mppi_update(
 
     U_new = jnp.sum(weights[:, None, None] * sampled_actions, axis=0)
 
-    return U_new, ess, lam
+    # Rollouts to visualize: the lowest-cost ones plus an evenly strided (i.e. random) subset
+    best = jax.lax.top_k(-costs, N_VIS_BEST)[1]
+    strided = jnp.arange(N_VIS_RANDOM) * (n_samples // N_VIS_RANDOM)
+    vis_idx = jnp.concatenate((best, strided))
+    vis_pos = rollouts[vis_idx, :, :3]
+    vis_weights = weights[vis_idx]
+    # Predicted path of the chosen mean action sequence
+    mean_path = rollout(x0, U_new, params, dt)[:, :3]
+
+    return U_new, ess, lam, vis_pos, vis_weights, mean_path
 
 
 def build_reference(
@@ -385,6 +409,7 @@ class AttitudeMPPI(Controller):
         self._U_nom = jnp.tile(jnp.array([0.0, 0.0, 0.0, self._hover_thrust]), (self._horizon, 1))
         self._u_prev = self._U_nom[0]
         self._ess = float("nan")
+        self._vis = None  # (rollout positions, rollout weights, mean path), set in compute_control
         self._finished = False
         
         self._ref = self._mlc.get_trajectory(obs, self._horizon, self._dt)
@@ -432,7 +457,7 @@ class AttitudeMPPI(Controller):
         
         # Fresh noise every step: split the key, keep one half and use the other
         self._key, subkey = jax.random.split(self._key)
-        U_new, ess, lam = self._update(
+        U_new, ess, lam, vis_pos, vis_weights, mean_path = self._update(
             subkey,
             self._state(obs),
             self._U_nom,
@@ -448,7 +473,8 @@ class AttitudeMPPI(Controller):
         )
         self._ess = float(ess)
         self._lam = float(lam)
-        
+        self._vis = (np.asarray(vis_pos), np.asarray(vis_weights), np.asarray(mean_path))
+
         self._u_prev = U_new[0]
         # Shift by one step for the next call and repeat the last input to fill the end
         self._U_nom = jnp.concatenate((U_new[1:], U_new[-1:]))
@@ -470,21 +496,39 @@ class AttitudeMPPI(Controller):
             True if the controller is finished, False otherwise.
         """
         return self._finished | int(obs["n_gates_passed"]) == len(obs["gate_sequence"])
-    
+
+    def render_callback(self, sim: Sim):
+        """Draw the reference by speed, the sampled rollouts by weight and the mean action path."""
+        # Local reference trajectory handed to MPPI, colored by its speed
+        ref_pos = self._ref[:, :3]
+        colors = speed_to_rgba(np.linalg.norm(self._ref[:, 3:6], axis=1)[:-1])
+        for i in range(len(ref_pos) - 1):
+            draw_line(sim, ref_pos[i : i + 2], rgba=colors[i], start_size=3.0, end_size=3.0)
+
+        if self._vis is None:
+            return
+        # Reference point the drone should be tracking right now
+        draw_points(sim, ref_pos[:1], rgba=(1.0, 0.9, 0.0, 1.0), size=0.03)
+
+        vis_pos, vis_weights, mean_path = self._vis
+        # Rollout tree: opaque, thick and bright for high weight, faint and thin for low weight
+        # (sqrt compresses the weights, which span orders of magnitude)
+        w = np.sqrt(vis_weights / vis_weights.max())
+        for pos, wi in zip(vis_pos, w):
+            draw_line(
+                sim, pos[::2], rgba=(0.1, 1.0, 0.1, 0.1 + 0.9 * wi),
+                start_size=1.0 + 3.0 * wi, end_size=1.0 + 3.0 * wi,
+            )
+        # Chosen mean action sequence, drawn last so it is on top
+        draw_line(sim, mean_path, rgba=(1.0, 0.0, 1.0, 1.0), start_size=4.5, end_size=4.5)
+        draw_points(sim, mean_path, rgba=(1.0, 0.0, 1.0, 1.0), size=0.01)
+
     def episode_callback(self):
         """Reset the internal state."""
         self._finished = False
         self._U_nom = jnp.tile(jnp.array([0.0, 0.0, 0.0, self._hover_thrust]), (self._horizon, 1))
         self._u_prev = self._U_nom[0]
 
-    def render_callback(self, sim: Sim):
-        hlc = self._mlc._planner
-        reference_path = hlc._current_reference.path(np.linspace(0, hlc._current_reference.length, 100))
-        reference_traj = self._ref[:, :3]
-        
-        draw_line(sim, reference_path, rgba=(0.0, 1.0, 0.0, 1.0))
-        draw_line(sim, reference_traj, rgba=(1.0, 0.0, 0.0, 1.0))
-    
     def _get_gates_pos_and_normal(self, obs: dict[str, NDArray[np.floating]]) -> Array:
         """Return the position and the normal vector of every gate with shape (n_gates, 6)."""
         # The gate normal is the gate's local x-axis in the world frame
