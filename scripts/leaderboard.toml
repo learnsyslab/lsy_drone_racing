@@ -47,6 +47,9 @@ submissions = 2
 [team4]
 name = "Royal Army"
 github = "gywuzz"
+time = 23.72333333333333
+success_rate = 0.6
+submissions = 1
 
 [team5]
 name = "cAngel18"

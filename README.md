@@ -15,10 +15,10 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 7 | Kalman Sutra | 9.782 | 55 | 2 |
 | 8 | Terminal Velocity | 15.422 | 60 | 3 |
 | 9 | Radu (TA) | 18.457 | 60 | 2 |
-| 10 | Marcel (TA) | 26.626 | 50 | 7 |
-| 11 | Martin (TA) | 27.082 | 85 | 1 |
+| 10 | Royal Army | 23.723 | 60 | 1 |
+| 11 | Marcel (TA) | 26.626 | 50 | 7 |
+| 12 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
-| - | Royal Army | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
