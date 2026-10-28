@@ -165,6 +165,13 @@ pixi shell -e gpu
 pip install -e .[rl]
 ```
 
+### Apple Silicon GPU (Experimental)
+
+On Apple Silicon, you can run the simulation on the GPU with [jax-mps](https://github.com/tillahoffmann/jax-mps) by creating the environment with `device="mps"`. See the [crazyflow installation guide](https://learnsyslab.github.io/crazyflow/get-started/installation/) for setup.
+
+!!! warning
+    We do not test this backend or provide a pixi environment for it.
+
 ### Running Tests
 
 (Optional) You can also run the tests by directly running either
