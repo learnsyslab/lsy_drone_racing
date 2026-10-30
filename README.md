@@ -8,7 +8,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | :---: | :--- | :---  | :--- | :---: |
 | 🥇 | BreakFaster | 3.332 | 60 | 5 |
 | 🥈 | Überflieger | 3.343 | 80 | 3 |
-| 🥉 | Justin & Finn | 5.917 | 75 | 1 |
+| 🥉 | Justin & Finn | 4.074 | 80 | 2 |
 | 4 | QuadroBlade | 8.124 | 55 | 2 |
 | 5 | Narges and Eram | 8.478 | 85 | 3 |
 | 6 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
@@ -28,6 +28,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | - | Nova-YJ | N/A | 0 | 0 |
 | - | XJI | N/A | 0 | 0 |
 | - | Quiet Donuts | N/A | 0 | 0 |
+| - | Gate Crashers (MAADR) | N/A | 0 | 0 |
 
 ## Hall of fame 🏆
 * [Summer 2026 Leaderboard](./archive/summer26/README.md)
