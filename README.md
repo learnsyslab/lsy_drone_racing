@@ -10,14 +10,15 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | Überflieger | 3.343 | 80 | 3 |
 | 🥉 | Justin & Finn | 4.074 | 80 | 2 |
 | 4 | QuadroBlade | 7.738 | 65 | 3 |
-| 5 | Narges and Eram | 8.478 | 85 | 3 |
-| 6 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 7 | Kalman Sutra | 9.782 | 55 | 2 |
-| 8 | Terminal Velocity | 15.422 | 60 | 3 |
-| 9 | Radu (TA) | 18.457 | 60 | 2 |
-| 10 | Royal Army | 23.723 | 60 | 1 |
-| 11 | Marcel (TA) | 26.626 | 50 | 7 |
-| 12 | Martin (TA) | 27.082 | 85 | 1 |
+| 5 | XJI | 8.317 | 80 | 1 |
+| 6 | Narges and Eram | 8.478 | 85 | 3 |
+| 7 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 8 | Kalman Sutra | 9.782 | 55 | 2 |
+| 9 | Terminal Velocity | 15.422 | 60 | 3 |
+| 10 | Radu (TA) | 18.457 | 60 | 2 |
+| 11 | Royal Army | 23.723 | 60 | 1 |
+| 12 | Marcel (TA) | 26.626 | 50 | 7 |
+| 13 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | cAngel18 | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
@@ -26,7 +27,6 @@ This competition is only for students of the ADR course at TUM. Students have to
 | - | Del Lobos | N/A | 0 | 0 |
 | - | SkyX | N/A | 0 | 0 |
 | - | Nova-YJ | N/A | 0 | 0 |
-| - | XJI | N/A | 0 | 0 |
 | - | Quiet Donuts | N/A | 0 | 0 |
 | - | Gate Crashers (MAADR) | N/A | 0 | 0 |
 
