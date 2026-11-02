@@ -6,9 +6,9 @@ This competition is only for students of the ADR course at TUM. Students have to
 ## Leaderboard 🏁
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
-| 🥇 | BreakFaster | 3.332 | 60 | 5 |
-| 🥈 | Überflieger | 3.343 | 80 | 3 |
-| 🥉 | Nova-YJ | 3.384 | 75 | 1 |
+| 🥇 | Nova-YJ | 3.328 | 75 | 2 |
+| 🥈 | BreakFaster | 3.332 | 60 | 5 |
+| 🥉 | Überflieger | 3.343 | 80 | 3 |
 | 4 | Justin & Finn | 4.074 | 80 | 2 |
 | 5 | QuadroBlade | 7.738 | 65 | 3 |
 | 6 | XJI | 8.317 | 80 | 1 |
