@@ -10,8 +10,8 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | Nova-YJ | 3.328 | 75 | 2 |
 | 🥉 | Überflieger | 3.343 | 80 | 3 |
 | 4 | Justin & Finn | 4.074 | 80 | 2 |
-| 5 | QuadroBlade | 7.738 | 65 | 3 |
-| 6 | XJI | 8.317 | 80 | 1 |
+| 5 | XJI | 6.998 | 80 | 2 |
+| 6 | QuadroBlade | 7.738 | 65 | 3 |
 | 7 | Barbie Drone | 8.346 | 80 | 1 |
 | 8 | Narges and Eram | 8.478 | 85 | 3 |
 | 9 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
