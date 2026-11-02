@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from crazyflow import Sim
     from numpy.typing import NDArray
 
+
 def create_acados_model(parameters: dict) -> AcadosModel:
     """Creates an acados model from the symbolic drone dynamics."""
     # For more info on the models, check out https://github.com/learnsyslab/crazyflow
@@ -45,7 +46,7 @@ def create_acados_model(parameters: dict) -> AcadosModel:
     # Initialize the nonlinear model for NMPC formulation
     model = AcadosModel()
     model.name = "basic_example_mpc"
-    model.f_expl_expr = X_dot # Can be changed even after compilation
+    model.f_expl_expr = X_dot  # Can be changed even after compilation
     model.f_impl_expr = None
     model.x = X
     model.u = U
@@ -176,9 +177,11 @@ def create_ocp_solver(
 
     return acados_ocp_solver, ocp
 
+
 def rpy2NormVec(rpy: NDArray[np.floating]) -> NDArray[np.floating]:
     """Return Norm Vec."""
-    return np.array([np.cos(rpy[2]), np.sin(rpy[2]),0])
+    return np.array([np.cos(rpy[2]), np.sin(rpy[2]), 0])
+
 
 class AttitudeMPCPlus(Controller):
     """Example of a MPC using the collective thrust and attitude interface."""
@@ -208,15 +211,16 @@ class AttitudeMPCPlus(Controller):
             [
                 start_pos,
                 [-1.0, 0.75, 0.4],
-                obs["gates_pos"][0], # [0.3, 0.35, 0.7], #
-                [1.3, -0.15, 0.9], 
-                obs["gates_pos"][1] + gate2_norm_vec * 0.15, #[0.85, 0.85, 1.2], # gate 2 + dahinter
-                [-0.5, -0.05, 0.7], 
-                obs["gates_pos"][2] + gate3_norm_vec * 0.15, # gate 3 + dahinter
-                [-1.2, -0.2, 1.2], 
-                obs["gates_pos"][3], # = Gate 4
-                [1.2, -0.15, 1.2], 
-                obs["gates_pos"][1] + gate2_norm_vec * 0.2, # gate 2 + dahinter
+                obs["gates_pos"][0],  # [0.3, 0.35, 0.7], #
+                [1.3, -0.15, 0.9],
+                obs["gates_pos"][1]
+                + gate2_norm_vec * 0.15,  # [0.85, 0.85, 1.2], # gate 2 + dahinter
+                [-0.5, -0.05, 0.7],
+                obs["gates_pos"][2] + gate3_norm_vec * 0.15,  # gate 3 + dahinter
+                [-1.2, -0.2, 1.2],
+                obs["gates_pos"][3],  # = Gate 4
+                [1.2, -0.15, 1.2],
+                obs["gates_pos"][1] + gate2_norm_vec * 0.2,  # gate 2 + dahinter
                 [0.25, 1.25, 1.2],
             ]
         )
@@ -252,11 +256,11 @@ class AttitudeMPCPlus(Controller):
         self._config = config
         self._finished = False
 
-        # Debug 
+        # Debug
         self._obs_list: list[dict[str, list]] = []
         self._config = config
 
-    def _update_path(self,  obs: dict[str, NDArray[np.floating]], config: dict):
+    def _update_path(self, obs: dict[str, NDArray[np.floating]], config: dict):
         # Same waypoints as in the state controller. Determined by trial and error.
         start_pos = obs["pos"]
         obs["gates_rpy"] = R.from_quat(obs["gates_quat"]).as_euler("xyz")
@@ -266,15 +270,16 @@ class AttitudeMPCPlus(Controller):
             [
                 start_pos,
                 [-1.0, 0.75, 0.4],
-                obs["gates_pos"][0], # [0.3, 0.35, 0.7], #
-                [1.3, -0.15, 0.9], 
-                obs["gates_pos"][1] + gate2_norm_vec * 0.15, #[0.85, 0.85, 1.2], # gate 2 + dahinter
-                [-0.5, -0.05, 0.7], 
-                obs["gates_pos"][2] + gate3_norm_vec * 0.15, # gate 3 + dahinter
-                [-1.2, -0.2, 1.2], 
-                obs["gates_pos"][3], # = Gate 4
-                [1.2, -0.15, 1.2], 
-                obs["gates_pos"][1] + gate2_norm_vec * 0.2, # gate 2 + dahinter
+                obs["gates_pos"][0],  # [0.3, 0.35, 0.7], #
+                [1.3, -0.15, 0.9],
+                obs["gates_pos"][1]
+                + gate2_norm_vec * 0.15,  # [0.85, 0.85, 1.2], # gate 2 + dahinter
+                [-0.5, -0.05, 0.7],
+                obs["gates_pos"][2] + gate3_norm_vec * 0.15,  # gate 3 + dahinter
+                [-1.2, -0.2, 1.2],
+                obs["gates_pos"][3],  # = Gate 4
+                [1.2, -0.15, 1.2],
+                obs["gates_pos"][1] + gate2_norm_vec * 0.2,  # gate 2 + dahinter
                 [0.25, 1.25, 1.2],
             ]
         )
@@ -313,8 +318,9 @@ class AttitudeMPCPlus(Controller):
         if self._tick >= self._tick_max:
             self._finished = True
 
-        if( np.any(obs["gates_pos"] != self.__pp_gates_pos) 
-           or np.any(obs["gates_quat"] != self._pp_gates_quat) ):
+        if np.any(obs["gates_pos"] != self.__pp_gates_pos) or np.any(
+            obs["gates_quat"] != self._pp_gates_quat
+        ):
             self._update_path(obs, self._config)
 
         self._obs_list.append({})
