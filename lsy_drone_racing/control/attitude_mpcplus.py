@@ -29,8 +29,6 @@ if TYPE_CHECKING:
     from crazyflow import Sim
     from numpy.typing import NDArray
 
-import json
-
 def create_acados_model(parameters: dict) -> AcadosModel:
     """Creates an acados model from the symbolic drone dynamics."""
     # For more info on the models, check out https://github.com/learnsyslab/crazyflow
@@ -258,11 +256,6 @@ class AttitudeMPCPlus(Controller):
         self._obs_list: list[dict[str, list]] = []
         self._config = config
 
-    def __del__(self):
-        """Stores logged observations on file for debugging purposes."""
-        with open("/home/hendrik/repos/lsy_drone_racing/obs_logs.json", 'w') as file:
-            file.write(json.dumps(self._obs_list))
-
     def _update_path(self,  obs: dict[str, NDArray[np.floating]], config: dict):
         # Same waypoints as in the state controller. Determined by trial and error.
         start_pos = obs["pos"]
@@ -320,7 +313,8 @@ class AttitudeMPCPlus(Controller):
         if self._tick >= self._tick_max:
             self._finished = True
 
-        if( np.any(obs["gates_pos"] != self.__pp_gates_pos) or np.any(obs["gates_quat"] != self._pp_gates_quat) ):
+        if( np.any(obs["gates_pos"] != self.__pp_gates_pos) 
+           or np.any(obs["gates_quat"] != self._pp_gates_quat) ):
             self._update_path(obs, self._config)
 
         self._obs_list.append({})
