@@ -16,13 +16,13 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 8 | Narges and Eram | 8.478 | 85 | 3 |
 | 9 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
 | 10 | Kalman Sutra | 9.782 | 55 | 2 |
-| 11 | Royal Army | 14.742 | 80 | 3 |
-| 12 | Terminal Velocity | 15.422 | 60 | 3 |
-| 13 | Radu (TA) | 18.457 | 60 | 2 |
-| 14 | Marcel (TA) | 26.626 | 50 | 7 |
-| 15 | Martin (TA) | 27.082 | 85 | 1 |
+| 11 | Christian & Hendrik | 11.645 | 95 | 1 |
+| 12 | Royal Army | 14.742 | 80 | 3 |
+| 13 | Terminal Velocity | 15.422 | 60 | 3 |
+| 14 | Radu (TA) | 18.457 | 60 | 2 |
+| 15 | Marcel (TA) | 26.626 | 50 | 7 |
+| 16 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
-| - | Christian & Hendrik | N/A | 0 | 0 |
 | - | herrx2 | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
 | - | Del Lobos | N/A | 0 | 0 |

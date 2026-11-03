@@ -54,6 +54,9 @@ submissions = 3
 [team5]
 name = "Christian & Hendrik"
 github = "cAngel18"
+time = 11.645263157894737
+success_rate = 0.95
+submissions = 1
 
 [team6]
 name = "Justin & Finn"
