@@ -115,9 +115,9 @@ submissions = 2
 [team15]
 name = "XJI"
 github = "Cowhors3"
-time = 6.772941176470589
-success_rate = 0.85
-submissions = 3
+time = 6.690666666666668
+success_rate = 0.75
+submissions = 4
 
 [team16]
 name = "Terminal Velocity"
