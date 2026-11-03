@@ -16,7 +16,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 8 | Kalman Sutra | 5.888 | 90 | 3 |
 | 9 | Christian & Hendrik | 6.005 | 75 | 4 |
 | 10 | XJI | 6.691 | 75 | 4 |
-| 11 | Barbie Drone | 7.382 | 65 | 2 |
+| 11 | Barbie Drone | 7.375 | 85 | 3 |
 | 12 | QuadroBlade | 7.738 | 65 | 3 |
 | 13 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
 | 14 | Del Lobos | 9.415 | 55 | 1 |
