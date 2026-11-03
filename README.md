@@ -7,12 +7,12 @@ This competition is only for students of the ADR course at TUM. Students have to
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
 | 🥇 | BreakFaster | 3.268 | 65 | 6 |
-| 🥈 | Nova-YJ | 3.328 | 75 | 2 |
-| 🥉 | Überflieger | 3.343 | 80 | 3 |
-| 4 | Justin & Finn | 4.074 | 80 | 2 |
-| 5 | Push & Pray | 5.082 | 60 | 1 |
-| 6 | Kalman Sutra | 5.888 | 90 | 3 |
-| 7 | Narges and Eram | 6.739 | 80 | 4 |
+| 🥈 | Narges and Eram | 3.321 | 85 | 5 |
+| 🥉 | Nova-YJ | 3.328 | 75 | 2 |
+| 4 | Überflieger | 3.343 | 80 | 3 |
+| 5 | Justin & Finn | 4.074 | 80 | 2 |
+| 6 | Push & Pray | 5.082 | 60 | 1 |
+| 7 | Kalman Sutra | 5.888 | 90 | 3 |
 | 8 | XJI | 6.773 | 85 | 3 |
 | 9 | Christian & Hendrik | 6.947 | 85 | 3 |
 | 10 | QuadroBlade | 7.738 | 65 | 3 |
