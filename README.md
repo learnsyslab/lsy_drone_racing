@@ -12,7 +12,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 4 | Überflieger | 3.343 | 80 | 3 |
 | 5 | SkyX | 4.011 | 55 | 1 |
 | 6 | Justin & Finn | 4.074 | 80 | 2 |
-| 7 | Push & Pray | 4.595 | 60 | 2 |
+| 7 | Push & Pray | 4.222 | 60 | 3 |
 | 8 | Kalman Sutra | 5.888 | 90 | 3 |
 | 9 | Christian & Hendrik | 6.005 | 75 | 4 |
 | 10 | XJI | 6.691 | 75 | 4 |
