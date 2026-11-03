@@ -19,15 +19,15 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 11 | QuadroBlade | 7.738 | 65 | 3 |
 | 12 | Barbie Drone | 8.346 | 80 | 1 |
 | 13 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 14 | Quiet Donuts | 10.798 | 90 | 1 |
-| 15 | Royal Army | 14.742 | 80 | 3 |
-| 16 | Terminal Velocity | 15.422 | 60 | 3 |
-| 17 | Radu (TA) | 18.457 | 60 | 2 |
-| 18 | Marcel (TA) | 26.626 | 50 | 7 |
-| 19 | Martin (TA) | 27.082 | 85 | 1 |
+| 14 | Del Lobos | 9.415 | 55 | 1 |
+| 15 | Quiet Donuts | 10.798 | 90 | 1 |
+| 16 | Royal Army | 14.742 | 80 | 3 |
+| 17 | Terminal Velocity | 15.422 | 60 | 3 |
+| 18 | Radu (TA) | 18.457 | 60 | 2 |
+| 19 | Marcel (TA) | 26.626 | 50 | 7 |
+| 20 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
-| - | Del Lobos | N/A | 0 | 0 |
 | - | Gate Crashers (MAADR) | N/A | 0 | 0 |
 
 ## Hall of fame 🏆
