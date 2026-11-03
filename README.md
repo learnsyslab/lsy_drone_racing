@@ -10,12 +10,12 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | Nova-YJ | 3.328 | 75 | 2 |
 | 🥉 | Überflieger | 3.343 | 80 | 3 |
 | 4 | Justin & Finn | 4.074 | 80 | 2 |
-| 5 | XJI | 6.998 | 80 | 2 |
-| 6 | QuadroBlade | 7.738 | 65 | 3 |
-| 7 | Barbie Drone | 8.346 | 80 | 1 |
-| 8 | Narges and Eram | 8.478 | 85 | 3 |
-| 9 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 10 | Christian & Hendrik | 9.371 | 55 | 2 |
+| 5 | Christian & Hendrik | 6.947 | 85 | 3 |
+| 6 | XJI | 6.998 | 80 | 2 |
+| 7 | QuadroBlade | 7.738 | 65 | 3 |
+| 8 | Barbie Drone | 8.346 | 80 | 1 |
+| 9 | Narges and Eram | 8.478 | 85 | 3 |
+| 10 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
 | 11 | Kalman Sutra | 9.782 | 55 | 2 |
 | 12 | Royal Army | 14.742 | 80 | 3 |
 | 13 | Terminal Velocity | 15.422 | 60 | 3 |
