@@ -15,10 +15,10 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 7 | Push & Pray | 4.178 | 60 | 4 |
 | 8 | QuadroBlade | 4.366 | 65 | 4 |
 | 9 | Del Lobos | 4.845 | 55 | 3 |
-| 10 | Kalman Sutra | 5.309 | 70 | 4 |
-| 11 | Terminal Velocity | 5.890 | 90 | 6 |
-| 12 | Christian & Hendrik | 5.993 | 55 | 5 |
-| 13 | XJI | 6.316 | 75 | 5 |
+| 10 | XJI | 4.925 | 65 | 6 |
+| 11 | Kalman Sutra | 5.309 | 70 | 4 |
+| 12 | Terminal Velocity | 5.890 | 90 | 6 |
+| 13 | Christian & Hendrik | 5.993 | 55 | 5 |
 | 14 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
 | 15 | Quiet Donuts | 6.979 | 70 | 2 |
 | 16 | Barbie Drone | 7.375 | 85 | 3 |
