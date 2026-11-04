@@ -135,9 +135,9 @@ submissions = 7
 [team17]
 name = "Quiet Donuts"
 github = "mathurin-lab"
-time = 6.978571428571429
-success_rate = 0.7
-submissions = 2
+time = 5.363636363636364
+success_rate = 0.55
+submissions = 3
 
 [team18]
 name = "multi-drone RL (MAADR)"
