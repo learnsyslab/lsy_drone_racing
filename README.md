@@ -10,7 +10,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | Narges and Eram | 3.321 | 85 | 5 |
 | 🥉 | Nova-YJ | 3.328 | 75 | 2 |
 | 4 | Überflieger | 3.343 | 80 | 3 |
-| 5 | SkyX | 4.011 | 55 | 1 |
+| 5 | SkyX | 3.983 | 75 | 2 |
 | 6 | Justin & Finn | 4.074 | 80 | 2 |
 | 7 | Push & Pray | 4.222 | 60 | 3 |
 | 8 | QuadroBlade | 4.366 | 65 | 4 |
