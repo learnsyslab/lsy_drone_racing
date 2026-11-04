@@ -17,9 +17,9 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 9 | QuadroBlade | 4.366 | 65 | 4 |
 | 10 | Del Lobos | 4.576 | 50 | 5 |
 | 11 | XJI | 4.604 | 70 | 8 |
-| 12 | Quiet Donuts | 5.195 | 55 | 5 |
-| 13 | Terminal Velocity | 5.264 | 70 | 8 |
-| 14 | Kalman Sutra | 5.309 | 70 | 4 |
+| 12 | Kalman Sutra | 4.724 | 50 | 5 |
+| 13 | Quiet Donuts | 5.195 | 55 | 5 |
+| 14 | Terminal Velocity | 5.264 | 70 | 8 |
 | 15 | Barbie Drone | 5.915 | 65 | 5 |
 | 16 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
 | 17 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |

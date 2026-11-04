@@ -86,9 +86,9 @@ submissions = 5
 [team10]
 name = "Kalman Sutra"
 github = "spalder"
-time = 5.308571428571428
-success_rate = 0.7
-submissions = 4
+time = 4.723999999999999
+success_rate = 0.5
+submissions = 5
 
 [team11]
 name = "Narges and Eram"
