@@ -20,8 +20,8 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 12 | Quiet Donuts | 5.240 | 50 | 4 |
 | 13 | Terminal Velocity | 5.264 | 70 | 8 |
 | 14 | Kalman Sutra | 5.309 | 70 | 4 |
-| 15 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
-| 16 | Barbie Drone | 7.375 | 85 | 3 |
+| 15 | Barbie Drone | 5.980 | 75 | 4 |
+| 16 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
 | 17 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
 | 18 | Royal Army | 14.742 | 80 | 3 |
 | 19 | Radu (TA) | 18.457 | 60 | 2 |

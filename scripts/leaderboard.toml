@@ -79,9 +79,9 @@ github = "Pjpjwg"
 [team9]
 name = "Barbie Drone"
 github = "delvinbamerni-del"
-time = 7.375294117647059
-success_rate = 0.85
-submissions = 3
+time = 5.98
+success_rate = 0.75
+submissions = 4
 
 [team10]
 name = "Kalman Sutra"
