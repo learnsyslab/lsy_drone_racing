@@ -149,3 +149,6 @@ submissions = 1
 [team19]
 name = "Gate Crashers (MAADR)"
 github = "fbelderink"
+time = 6.412000000000002
+success_rate = 0.75
+submissions = 1

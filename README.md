@@ -19,16 +19,16 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 11 | Terminal Velocity | 5.890 | 90 | 6 |
 | 12 | Christian & Hendrik | 5.993 | 55 | 5 |
 | 13 | XJI | 6.316 | 75 | 5 |
-| 14 | Quiet Donuts | 6.979 | 70 | 2 |
-| 15 | Barbie Drone | 7.375 | 85 | 3 |
-| 16 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 17 | Royal Army | 14.742 | 80 | 3 |
-| 18 | Radu (TA) | 18.457 | 60 | 2 |
-| 19 | Marcel (TA) | 26.626 | 50 | 7 |
-| 20 | Martin (TA) | 27.082 | 85 | 1 |
+| 14 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
+| 15 | Quiet Donuts | 6.979 | 70 | 2 |
+| 16 | Barbie Drone | 7.375 | 85 | 3 |
+| 17 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 18 | Royal Army | 14.742 | 80 | 3 |
+| 19 | Radu (TA) | 18.457 | 60 | 2 |
+| 20 | Marcel (TA) | 26.626 | 50 | 7 |
+| 21 | Martin (TA) | 27.082 | 85 | 1 |
 | - | Yuming (TA) | N/A | 0 | 0 |
 | - | PJPJWG | N/A | 0 | 0 |
-| - | Gate Crashers (MAADR) | N/A | 0 | 0 |
 
 ## Hall of fame 🏆
 * [Summer 2026 Leaderboard](./archive/summer26/README.md)
