@@ -20,9 +20,9 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 12 | Quiet Donuts | 6.979 | 70 | 2 |
 | 13 | Barbie Drone | 7.375 | 85 | 3 |
 | 14 | Del Lobos | 8.298 | 60 | 2 |
-| 15 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
-| 16 | Royal Army | 14.742 | 80 | 3 |
-| 17 | Terminal Velocity | 15.422 | 60 | 3 |
+| 15 | Terminal Velocity | 8.532 | 80 | 4 |
+| 16 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 17 | Royal Army | 14.742 | 80 | 3 |
 | 18 | Radu (TA) | 18.457 | 60 | 2 |
 | 19 | Marcel (TA) | 26.626 | 50 | 7 |
 | 20 | Martin (TA) | 27.082 | 85 | 1 |
