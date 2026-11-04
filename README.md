@@ -15,7 +15,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 7 | Justin & Finn | 4.069 | 95 | 3 |
 | 8 | Push & Pray | 4.178 | 60 | 4 |
 | 9 | QuadroBlade | 4.366 | 65 | 4 |
-| 10 | Del Lobos | 4.594 | 65 | 4 |
+| 10 | Del Lobos | 4.576 | 50 | 5 |
 | 11 | XJI | 4.604 | 70 | 8 |
 | 12 | Quiet Donuts | 5.240 | 50 | 4 |
 | 13 | Kalman Sutra | 5.309 | 70 | 4 |
