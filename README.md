@@ -15,8 +15,8 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 7 | Justin & Finn | 4.069 | 95 | 3 |
 | 8 | Push & Pray | 4.178 | 60 | 4 |
 | 9 | QuadroBlade | 4.366 | 65 | 4 |
-| 10 | Del Lobos | 4.845 | 55 | 3 |
-| 11 | XJI | 4.849 | 70 | 7 |
+| 10 | XJI | 4.604 | 70 | 8 |
+| 11 | Del Lobos | 4.845 | 55 | 3 |
 | 12 | Kalman Sutra | 5.309 | 70 | 4 |
 | 13 | Terminal Velocity | 5.352 | 60 | 7 |
 | 14 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
