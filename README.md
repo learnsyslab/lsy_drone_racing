@@ -18,9 +18,9 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 10 | Kalman Sutra | 5.309 | 70 | 4 |
 | 11 | Christian & Hendrik | 5.993 | 55 | 5 |
 | 12 | XJI | 6.316 | 75 | 5 |
-| 13 | Quiet Donuts | 6.979 | 70 | 2 |
-| 14 | Barbie Drone | 7.375 | 85 | 3 |
-| 15 | Terminal Velocity | 8.532 | 80 | 4 |
+| 13 | Terminal Velocity | 6.343 | 75 | 5 |
+| 14 | Quiet Donuts | 6.979 | 70 | 2 |
+| 15 | Barbie Drone | 7.375 | 85 | 3 |
 | 16 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
 | 17 | Royal Army | 14.742 | 80 | 3 |
 | 18 | Radu (TA) | 18.457 | 60 | 2 |

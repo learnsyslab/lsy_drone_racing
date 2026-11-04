@@ -128,9 +128,9 @@ submissions = 5
 [team16]
 name = "Terminal Velocity"
 github = "gitveronikahub"
-time = 8.532499999999999
-success_rate = 0.8
-submissions = 4
+time = 6.342666666666665
+success_rate = 0.75
+submissions = 5
 
 [team17]
 name = "Quiet Donuts"
