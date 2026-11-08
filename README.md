@@ -14,15 +14,15 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 6 | SkyX | 3.983 | 75 | 2 |
 | 7 | Justin & Finn | 4.069 | 95 | 3 |
 | 8 | Push & Pray | 4.178 | 60 | 4 |
-| 9 | QuadroBlade | 4.366 | 65 | 4 |
-| 10 | Del Lobos | 4.576 | 50 | 5 |
-| 11 | XJI | 4.604 | 70 | 8 |
-| 12 | Kalman Sutra | 4.724 | 50 | 5 |
-| 13 | Quiet Donuts | 5.195 | 55 | 5 |
-| 14 | Terminal Velocity | 5.264 | 70 | 8 |
-| 15 | Barbie Drone | 5.915 | 65 | 5 |
-| 16 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
-| 17 | multi-drone RL (MAADR) | 7.057 | 70 | 2 |
+| 9 | multi-drone RL (MAADR) | 4.199 | 90 | 3 |
+| 10 | QuadroBlade | 4.366 | 65 | 4 |
+| 11 | Del Lobos | 4.576 | 50 | 5 |
+| 12 | XJI | 4.604 | 70 | 8 |
+| 13 | Kalman Sutra | 4.724 | 50 | 5 |
+| 14 | Quiet Donuts | 5.195 | 55 | 5 |
+| 15 | Terminal Velocity | 5.264 | 70 | 8 |
+| 16 | Barbie Drone | 5.915 | 65 | 5 |
+| 17 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
 | 18 | Royal Army | 14.742 | 80 | 3 |
 | 19 | Radu (TA) | 18.457 | 60 | 2 |
 | 20 | Marcel (TA) | 26.626 | 50 | 7 |
