@@ -22,7 +22,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 14 | Terminal Velocity | 5.264 | 70 | 8 |
 | 15 | Barbie Drone | 5.915 | 65 | 5 |
 | 16 | Gate Crashers (MAADR) | 6.412 | 75 | 1 |
-| 17 | multi-drone RL (MAADR) | 8.913 | 80 | 1 |
+| 17 | multi-drone RL (MAADR) | 7.057 | 70 | 2 |
 | 18 | Royal Army | 14.742 | 80 | 3 |
 | 19 | Radu (TA) | 18.457 | 60 | 2 |
 | 20 | Marcel (TA) | 26.626 | 50 | 7 |

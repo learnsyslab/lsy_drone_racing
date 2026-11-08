@@ -142,9 +142,9 @@ submissions = 5
 [team18]
 name = "multi-drone RL (MAADR)"
 github = "handiener"
-time = 8.912500000000001
-success_rate = 0.8
-submissions = 1
+time = 7.057142857142857
+success_rate = 0.7
+submissions = 2
 
 [team19]
 name = "Gate Crashers (MAADR)"
