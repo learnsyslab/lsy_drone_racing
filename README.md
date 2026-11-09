@@ -10,11 +10,11 @@ This competition is only for students of the ADR course at TUM. Students have to
 | 🥈 | Narges and Eram | 3.321 | 85 | 5 |
 | 🥉 | Nova-YJ | 3.328 | 75 | 2 |
 | 4 | Überflieger | 3.343 | 80 | 3 |
-| 5 | Christian & Hendrik | 3.878 | 65 | 6 |
-| 6 | SkyX | 3.983 | 75 | 2 |
-| 7 | Justin & Finn | 4.069 | 95 | 3 |
-| 8 | Push & Pray | 4.178 | 60 | 4 |
-| 9 | multi-drone RL (MAADR) | 4.199 | 90 | 3 |
+| 5 | multi-drone RL (MAADR) | 3.654 | 95 | 4 |
+| 6 | Christian & Hendrik | 3.878 | 65 | 6 |
+| 7 | SkyX | 3.983 | 75 | 2 |
+| 8 | Justin & Finn | 4.069 | 95 | 3 |
+| 9 | Push & Pray | 4.178 | 60 | 4 |
 | 10 | QuadroBlade | 4.366 | 65 | 4 |
 | 11 | Del Lobos | 4.576 | 50 | 5 |
 | 12 | XJI | 4.604 | 70 | 8 |
