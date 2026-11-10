@@ -33,9 +33,9 @@ submissions = 3
 [team2]
 name = "BreakFaster"
 github = "mahdisafari761"
-time = 3.2676923076923075
-success_rate = 0.65
-submissions = 6
+time = 4.87125
+success_rate = 0.8
+submissions = 3
 
 [team3]
 name = "QuadroBlade"
@@ -46,7 +46,7 @@ submissions = 4
 
 [team4]
 name = "Royal Army"
-github = "gywuzz"
+github = "removed (gywuzz)"
 time = 14.7425
 success_rate = 0.8
 submissions = 3
@@ -74,11 +74,11 @@ submissions = 4
 
 [team8]
 name = "PJPJWG"
-github = "Pjpjwg"
+github = "removed (Pjpjwg)"
 
 [team9]
 name = "Barbie Drone"
-github = "delvinbamerni-del"
+github = "removed (delvinbamerni-del)"
 time = 5.915384615384616
 success_rate = 0.65
 submissions = 5
@@ -92,10 +92,10 @@ submissions = 5
 
 [team11]
 name = "Narges and Eram"
-github = "Eram333"
-time = 3.321176470588236
-success_rate = 0.85
-submissions = 5
+github = "removed (Eram333)"
+time = 6.73875
+success_rate = 0.8
+submissions = 4
 
 [team12]
 name = "Del Lobos"
@@ -113,10 +113,7 @@ submissions = 2
 
 [team14]
 name = "Nova-YJ"
-github = "Carrie414"
-time = 3.3280000000000003
-success_rate = 0.75
-submissions = 2
+github = "removed (Carrie414)"
 
 [team15]
 name = "XJI"
