@@ -354,6 +354,8 @@ class RealRaceCoreEnv:
                     self.drones.pos[self.rank],
                     {k: v[self.rank] for k, v in obs.items()},
                     check_ok=rclpy.ok,
+                    # 0.15m above the frame of the highest gate
+                    return_height=self.gates.pos[:, 2].max() + 0.36 + 0.15,
                 )
         finally:
             try:
