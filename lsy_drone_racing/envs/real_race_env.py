@@ -9,6 +9,7 @@ to the real drones.
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -342,10 +343,12 @@ class RealRaceCoreEnv:
 
         If the drone has finished the track, it will try to return to the start position.
         Irrespective of succeeding or not, the drone will be stopped immediately afterwards or in
-        case of errors, and close the connections to the ROSConnector.
+        case of errors, and close the connections to the ROSConnector. If the environment is
+        closed while a KeyboardInterrupt is propagating (e.g. Ctrl-C during deployment), the drone
+        is emergency-stopped immediately instead of returning to the start position.
         """
         try:
-            if self.data.taken_off:
+            if self.data.taken_off and not isinstance(sys.exception(), KeyboardInterrupt):
                 obs = self.obs()
                 self.drone.return_to_start(
                     self.drones.pos[self.rank],
