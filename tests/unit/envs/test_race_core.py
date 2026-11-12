@@ -11,6 +11,7 @@ from typing import Any
 
 import gymnasium
 import jax.numpy as jp
+import mujoco
 import numpy as np
 import pytest
 from scipy.spatial.transform import Rotation as R
@@ -490,4 +491,32 @@ def test_single_compile():
     env.step(env.action_space.sample())
     assert env.unwrapped._reset._cache_size() == reset_cache_size, "unexpected reset recompilation"
     assert env.unwrapped._step._cache_size() == step_cache_size, "unexpected step recompilation"
+    env.close()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("pos", "yaw", "has_stand"),
+    [
+        ([0.0, 0.0, 1.42], 1.0, False),
+        ([0.03, 0.0, 1.42], 1.0 + np.pi + 0.05, False),
+        ([0.1, 0.0, 1.42], 1.0, True),
+        ([0.0, 0.0, 1.42], 1.2, True),
+    ],
+)
+def test_stacked_gate_has_no_stand(pos: list[float], yaw: float, has_stand: bool):
+    """A gate stacked onto a lower gate with the same or flipped orientation has no stand."""
+    config = load_config(CONFIG_PATH / "level0.toml")
+    config.env.track.gates = [
+        {"pos": [0.0, 0.0, 0.7], "rpy": [0.0, 0.0, 1.0]},
+        {"pos": pos, "rpy": [0.0, 0.0, yaw]},
+    ]
+    config.env.track.gate_order = [1, 2]
+    env = make_env(track=config.env.track)
+    model = env.unwrapped.sim.mj_model
+    stands = [
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, f"gate_stand:{i}") != -1
+        for i in range(2)
+    ]
+    assert stands == [True, has_stand]
     env.close()

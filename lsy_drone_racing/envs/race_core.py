@@ -680,6 +680,8 @@ class RaceCoreEnv:
         obstacle_spec = mujoco.MjSpec.from_file(str(self.obstacle_spec_path))
         frame = self.sim.spec.worldbody.add_frame()
         n_gates, n_obstacles = len(track.gates), len(track.obstacles)
+        gates_pos = np.array([g["pos"] for g in track.gates])
+        gates_yaw = np.array([g["rpy"][2] for g in track.gates])
         for i in range(n_gates):
             gate_body = gate_spec.body("gate")
             if gate_body is None:
@@ -689,6 +691,12 @@ class RaceCoreEnv:
             # Convert from scipy order to MuJoCo order
             gate.quat = R.from_euler("xyz", track.gates[i]["rpy"]).as_quat(scalar_first=True)
             gate.mocap = True  # Make mocap to modify the position of static bodies during sim
+            # A gate stacked onto a lower gate is mounted on that gate's stand
+            lower = gates_pos[:, 2] < gates_pos[i, 2]
+            near = np.linalg.norm(gates_pos[:, :2] - gates_pos[i, :2], axis=-1) <= 0.05  # 5cm
+            parallel = np.abs(np.cos(gates_yaw - gates_yaw[i])) >= np.cos(np.deg2rad(5))  # 5 deg
+            if np.any(lower & near & parallel):
+                self.sim.spec.delete(self.sim.spec.geom(f"gate_stand:{i}"))
         for i in range(n_obstacles):
             obstacle_body = obstacle_spec.body("obstacle")
             if obstacle_body is None:
