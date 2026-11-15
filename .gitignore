@@ -32,4 +32,10 @@ acados/
 
 # Level 2 training artifacts; selected submission exports remain tracked.
 /lsy_drone_racing/control/rl_single_l2/outputs/
+/lsy_drone_racing/control/rl_race/outputs/
 !/lsy_drone_racing/control/rl_single_l2/deploy_model/*.json
+!/lsy_drone_racing/control/rl_race/deploy_model/*.json
+
+# Per-machine W&B agent state on the shared lab filesystem.
+/lsy_drone_racing/control/rl_race/sweeps/wandb-*/
+/wandb/

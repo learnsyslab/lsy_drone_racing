@@ -112,6 +112,12 @@ scripts = ["tools/setup_acados.bat"]
 [tool.pixi.feature.gpu]
 platforms = ["linux-64"]
 
+# GPU-native PPO training (rl_race), only in training/test environments; not a package extra, so
+# the default (competition) and deploy environments are unaffected. Brax main is pinned because no
+# release yet supports jax >= 0.10 (0.14.2 still calls the removed jax.device_put_replicated).
+[tool.pixi.feature.brax.pypi-dependencies]
+brax = { git = "https://github.com/google/brax.git", rev = "c8605294264a7b7546268adbb4beabc9eb624000" }
+
 [tool.pixi.tasks]
 evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the controller" }
 
@@ -119,9 +125,9 @@ evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the con
 [tool.pixi.environments]
 default = { features = ["sim"], solve-group = "default" }
 deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
-gpu = { features = ["sim", "gpu"], solve-group = "default" }
-tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
-gpu-tests = { features = ["sim", "rl", "gpu", "tests"], solve-group = "default" }
+gpu = { features = ["sim", "gpu", "brax"], solve-group = "default" }
+tests = { features = ["sim", "rl", "brax", "tests"], solve-group = "default" }
+gpu-tests = { features = ["sim", "rl", "gpu", "brax", "tests"], solve-group = "default" }
 gamepad = { features = ["sim", "gamepad"], solve-group = "default" }
 profile = { features = ["sim", "profile", "gpu"], solve-group = "default" }
 docs = { features = ["docs"] }
@@ -212,6 +218,8 @@ exclude = [
     "dist",
     "site-packages",
     "venv",
+    # Verbatim upstream Brax code (plus one hook); kept in upstream style to stay diffable.
+    "lsy_drone_racing/control/rl_race/brax_ppo_train.py",
 ]
 
 line-length = 100

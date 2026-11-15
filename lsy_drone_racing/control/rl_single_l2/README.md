@@ -169,7 +169,7 @@ The six-term reward per control step is defined in `reward.py`:
 
 ```text
 15 × progress + 10 × gate_passes + 100 × finished
-− 15 × crash − 0.01 × angular_speed_L2 − 0.10
+− 15 × crash − 0.01 × angular_speed_L2 − 0.10 × time
 ```
 
 Progress is distance reduction in meters toward the pre-step target, using the same

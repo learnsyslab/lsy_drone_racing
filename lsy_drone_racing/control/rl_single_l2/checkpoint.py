@@ -12,6 +12,7 @@ import pickle
 import random
 import shutil
 import tempfile
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +72,7 @@ def save_checkpoint(
             "progress_remaining": model._current_progress_remaining,
             "config": config,
             "environment": env.get_config(),
-            "network": network_config(),
+            "network": network_config(getattr(model.policy, "network", None)),
             "normalizer": env.normalizer.state_dict(),
             "pending_normalizer": env._pending_normalizer.state_dict(),
             "callback_state": getattr(model, "l2_callback_state", {}),
@@ -94,36 +95,46 @@ def load_checkpoint(
     *,
     mode: str = "resume",
     ppo_kwargs: dict[str, Any] | None = None,
+    network: Any = None,
 ) -> Any:
-    """Restore a run or copy its networks into freshly initialized optimizers."""
+    """Restore a run or copy its networks into freshly initialized optimizers.
+
+    ``network`` (a NetworkConfig) defaults to the checkpoint's own network and
+    must match it: parameters are copied layer by layer. A warm start may change
+    the actor's mean bound and the action mapping (ActionConfig), which reuse the
+    same parameter shapes; a resume must match exactly.
+    """
     from sbx import PPO
 
-    from lsy_drone_racing.control.rl_single_l2.policy import Level2Policy, network_config
+    from lsy_drone_racing.control.rl_single_l2.policy import Level2Policy, network_from_config
 
     if mode not in {"resume", "warm_start"}:
         raise ValueError("mode must be resume or warm_start")
     path = Path(checkpoint_dir).expanduser().resolve()
     metadata = read_metadata(path)
-    if metadata["network"] != network_config():
-        raise ValueError("Checkpoint network/std configuration is incompatible")
+    saved_network = network_from_config(metadata["network"])
+    if network is not None and network != saved_network:
+        if mode == "resume" or network.with_mean_bound(1.0) != saved_network.with_mean_bound(1.0):
+            raise ValueError("Checkpoint network differs from the requested network")
+    target_network = saved_network if network is None else network
     current = env.get_config()
-    keys = (
-        "observation",
-        "action",
-        "thrust_min",
-        "thrust_max",
-        "observation_dim",
-        "action_dim",
-        "freq",
-    )
+    keys = ("observation", "thrust_min", "thrust_max", "observation_dim", "action_dim", "freq")
+    from lsy_drone_racing.control.rl_single_l2.env_wrapper import ActionConfig
+
+    saved_env = dict(metadata["environment"])
+    # Earlier checkpoints store only alpha_max_rad; the gain defaults to it.
+    saved_env["action"] = asdict(ActionConfig(**saved_env["action"]))
+    # Earlier checkpoints predate reward modes and observation layouts.
+    saved_env.setdefault("reward_mode", "dense")
+    saved_env["observation"] = {"layout": "current", "paper_obstacles": False} | saved_env[
+        "observation"
+    ]
     if mode == "resume":
-        keys += ("reward", "max_episode_steps", "race_config")
+        keys += ("action", "reward_mode", "reward", "max_episode_steps", "race_config")
     for key in keys:
-        if metadata["environment"][key] != current[key]:
+        if saved_env[key] != current[key]:
             raise ValueError(f"Checkpoint environment setting differs: {key}")
     if mode == "resume":
-        from dataclasses import asdict
-
         from lsy_drone_racing.control.rl_single_l2.reset_mid_start import ResetConfig
 
         # Earlier checkpoints used only official starts; absence means probability zero.
@@ -134,7 +145,12 @@ def load_checkpoint(
             raise ValueError("Checkpoint reset settings differ; use warm_start to change them")
     model = PPO.load(path / "model.zip", env=env, device="cpu", force_reset=True)
     if mode == "warm_start":
-        fresh = PPO(Level2Policy, env, **(ppo_kwargs or metadata["config"]["ppo"]))
+        fresh = PPO(
+            Level2Policy,
+            env,
+            policy_kwargs={"network": target_network},
+            **(ppo_kwargs or metadata["config"]["ppo"]),
+        )
         fresh.policy.actor_state = fresh.policy.actor_state.replace(
             params=model.policy.actor_state.params
         )
@@ -151,6 +167,8 @@ def load_checkpoint(
 
         torch.set_rng_state(runtime["torch_rng"])
         model.l2_callback_state = metadata["callback_state"]
+        if getattr(model.policy, "network", saved_network) != saved_network:
+            raise ValueError("Restored policy network differs from checkpoint metadata")
         if (
             model.num_timesteps != metadata["num_timesteps"]
             or model._n_updates != metadata["n_updates"]

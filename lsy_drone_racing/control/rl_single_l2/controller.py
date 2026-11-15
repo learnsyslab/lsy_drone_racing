@@ -18,7 +18,7 @@ from lsy_drone_racing.control.rl_single_l2.env_wrapper import (
     decode_action,
     encode_obs,
 )
-from lsy_drone_racing.control.rl_single_l2.policy import Actor, network_config
+from lsy_drone_racing.control.rl_single_l2.policy import network_from_config
 
 
 class Level2RLController(Controller):
@@ -39,8 +39,7 @@ class Level2RLController(Controller):
                 "python -m lsy_drone_racing.control.rl_single_l2.checkpoint --checkpoint=..."
             )
         bundle = json.loads((model_dir / "config.json").read_text())
-        if bundle["network"] != network_config():
-            raise ValueError("Actor export network configuration is incompatible")
+        network = network_from_config(bundle["network"])
         environment = bundle["environment"]
         if config.env.freq != environment["freq"]:
             raise ValueError("Inference control frequency differs from training")
@@ -56,7 +55,7 @@ class Level2RLController(Controller):
         self.action_config = ActionConfig(**environment["action"])
         self.normalizer = RunningNormalizer(self.observation_config.size)
         self.normalizer.load_state_dict(bundle["normalizer"])
-        actor = Actor()
+        actor = network.actor()
         params = serialization.msgpack_restore((model_dir / "actor.msgpack").read_bytes())
 
         def predict(observation: dict, previous_action: jax.Array) -> jax.Array:

@@ -1,0 +1,43 @@
+{
+  "format_version": 2,
+  "action_order": [
+    "roll",
+    "pitch",
+    "yaw",
+    "thrust"
+  ],
+  "action_dim": 4,
+  "observation_dim": 49,
+  "obs": {
+    "n_gates": 2,
+    "n_obstacles": 4
+  },
+  "action": {
+    "roll_limit_deg": 70,
+    "pitch_limit_deg": 70,
+    "yaw_limit_deg": 70,
+    "thrust_min": 0.08545052260160446,
+    "thrust_max": 0.800000011920929
+  },
+  "network": {
+    "policy_layers": [
+      256,
+      256,
+      256
+    ],
+    "value_layers": [
+      256,
+      256,
+      256,
+      256
+    ],
+    "activation": "swish",
+    "distribution": "tanh_normal"
+  },
+  "freq": 50,
+  "source": {
+    "run_dir": "/u/halle/zshiy/home_at/projects/lsy_drone_racing/lsy_drone_racing/control/rl_race/outputs/four_action_s1_20261115",
+    "stage": "race",
+    "checkpoint": "final"
+  }
+}

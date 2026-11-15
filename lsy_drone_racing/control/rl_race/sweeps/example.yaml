@@ -1,0 +1,41 @@
+program: lsy_drone_racing/control/rl_race/sweep.py
+method: random
+metric:
+  name: final/leaderboard_score
+  goal: minimize
+command:
+  - ${env}
+  - pixi
+  - run
+  - -e
+  - gpu
+  - python
+  - -m
+  - lsy_drone_racing.control.rl_race.sweep
+parameters:
+  policy_layers:
+    values: [[256, 256], [256, 256, 256]]
+  value_layers:
+    value: [256, 256, 256, 256]
+  seed:
+    values: [1, 2, 3]
+  official_start_prob:
+    values: [0.5, 0.7]
+  learning_rate:
+    values: [0.0001, 0.0003]
+  policy_lr_after_switch:
+    value: 0.0001
+  pretrain_max_steps:
+    value: 500000000
+  pretrain_time:
+    value: 0.2
+  race_steps:
+    value: 2500000000
+  race_gate:
+    value: 5
+  race_lap:
+    value: 10
+  race_time:
+    value: 0.3
+  anneal_steps:
+    value: 0

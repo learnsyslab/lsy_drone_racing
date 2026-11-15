@@ -4,7 +4,7 @@
 # | :-----------------: | :----------------------------: | :-------------------------: | :---------------: | :-------------------: |
 # | `level2.toml`       | *Yes*                          | *Yes*                       | *No*              | Learning, re-planning |
 [controller]
-file = "rl_single_level2_controller.py" # Export a trained actor to control/rl_single_l2/deploy_model/ before evaluation.
+file = "rl_race_controller.py" # Brax rl_race policy; export to control/rl_race/deploy_model/ before evaluation.
 
 [deploy]
 ### Settings only relevant for deployment
