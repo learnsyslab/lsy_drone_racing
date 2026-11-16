@@ -7,7 +7,7 @@ This competition is only for students of the ADR course at TUM. Students have to
 | Rank | Team | Time [s] | Success Rate [%] | Submissions |
 | :---: | :--- | :---  | :--- | :---: |
 | 🥇 | Überflieger | 3.343 | 80 | 3 |
-| 🥈 | multi-drone RL (MAADR) | 3.470 | 90 | 5 |
+| 🥈 | multi-drone RL (MAADR) | 3.413 | 85 | 6 |
 | 🥉 | Christian & Hendrik | 3.878 | 65 | 6 |
 | 4 | SkyX | 3.983 | 75 | 2 |
 | 5 | Justin & Finn | 4.069 | 95 | 3 |
