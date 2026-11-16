@@ -8,6 +8,13 @@ import pytest
 from lsy_drone_racing.control.rl_race import sweep
 
 
+class WandbSummary(dict):
+    """Match W&B's mapping-only update signature."""
+
+    def update(self, values):
+        super().update(values)
+
+
 @pytest.mark.parametrize("budget,uploaded", [(50, True), (1e-12, False)])
 def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, budget, uploaded):
     calls = {}
@@ -47,9 +54,9 @@ def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, 
         },
         id="offline-test",
         log=lambda x: logs.append(x),
-        summary={},
+        summary=WandbSummary(),
         log_artifact=lambda x: None,
-        finish=lambda: finished.append(True),
+        finish=lambda exit_code: finished.append(exit_code),
     )
     monkeypatch.setattr(sweep, "train", train)
     monkeypatch.setattr(sweep.wandb, "init", lambda **kwargs: run)
@@ -64,7 +71,29 @@ def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, 
     assert (str(checkpoint) in attachments) == uploaded
     assert len(attachments) == (4 if uploaded else 3)
     assert run.summary["checkpoint_uploaded"] == uploaded
-    assert run.summary["training_complete"] and finished
+    assert run.summary["checkpoint_bytes"] == len(b"test")
+    assert run.summary["estimated_sweep_checkpoint_gb"] == len(b"test") / 1e9
+    assert run.summary["training_complete"] and finished == [0]
+
+
+def test_trial_failure_is_reported_to_wandb(monkeypatch, tmp_path):
+    finished = []
+    run = SimpleNamespace(
+        config={},
+        id="failed",
+        summary=WandbSummary(),
+        finish=lambda exit_code: finished.append(exit_code),
+    )
+    monkeypatch.setenv("WANDB_DIR", str(tmp_path))
+    monkeypatch.setattr(sweep.wandb, "init", lambda **kwargs: run)
+
+    def broken_train(output_root=None, run_name=None, wandb_project=None):
+        raise RuntimeError("training or evaluation failed")
+
+    monkeypatch.setattr(sweep, "train", broken_train)
+    with pytest.raises(RuntimeError, match="training or evaluation failed"):
+        sweep.main()
+    assert finished == [1]
 
 
 def test_machine_directories_are_isolated(monkeypatch, tmp_path):

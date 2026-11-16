@@ -15,6 +15,7 @@ def main() -> None:
     directory = Path(os.environ.get("WANDB_DIR", str(RL_DIR / "outputs")))
     directory.mkdir(parents=True, exist_ok=True)
     run = wandb.init(dir=str(directory))
+    exit_code = 1
     try:
         run.summary["machine"] = os.environ.get("RL_RACE_MACHINE", "unlabelled")
         args = dict(run.config)
@@ -65,7 +66,10 @@ def main() -> None:
         checkpoint_bytes = Path(report["checkpoint"]).stat().st_size
         estimated_gb = checkpoint_bytes * trial_count / 1e9
         run.summary.update(
-            checkpoint_bytes=checkpoint_bytes, estimated_sweep_checkpoint_gb=estimated_gb
+            {
+                "checkpoint_bytes": checkpoint_bytes,
+                "estimated_sweep_checkpoint_gb": estimated_gb,
+            }
         )
         artifact = wandb.Artifact(f"final-{run.id}", type="model")
         included = upload_checkpoint and estimated_gb <= cloud_budget
@@ -76,8 +80,9 @@ def main() -> None:
         artifact.add_file(str(output / f"{report['stage']}_config.json"))
         artifact.add_file(str(output / "stages.json"))
         run.log_artifact(artifact)
+        exit_code = 0
     finally:
-        run.finish()
+        run.finish(exit_code=exit_code)
 
 
 if __name__ == "__main__":

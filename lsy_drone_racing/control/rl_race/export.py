@@ -52,6 +52,9 @@ def export(
 ) -> str:
     """Write ``config.json`` and ``policy.msgpack`` for a run's checkpoint; return the path."""
     run = Path(run_dir).expanduser().resolve()
+    target = Path(destination).expanduser().resolve() if destination else RL_DIR / "deploy_model"
+    if target == run or target in run.parents:
+        raise ValueError("Export destination must not contain the source run directory")
     config = json.loads((run / f"{stage}_config.json").read_text())
     params = pickle.loads((run / "checkpoints" / f"{stage}_{checkpoint}.pkl").read_bytes())
     arrays = policy_arrays(params)
@@ -61,7 +64,6 @@ def export(
         "bias"
     ].shape != (8,):
         raise ValueError("Checkpoint must use four actions and the matching observation layout")
-    target = Path(destination).expanduser().resolve() if destination else RL_DIR / "deploy_model"
     if target.exists():
         if not overwrite:
             raise FileExistsError(f"{target} exists; pass --overwrite=True to replace it")
@@ -71,7 +73,7 @@ def export(
         "format_version": 2,
         "action_order": list(ACTION_ORDER),
         "action_dim": ACTION_SIZE,
-        "observation_dim": int(policy_arrays(params)["mean"].shape[0]),
+        "observation_dim": int(arrays["mean"].shape[0]),
         "obs": config["env"]["obs"],
         "action": {
             **{
@@ -86,7 +88,7 @@ def export(
         "source": {"run_dir": str(run), "stage": stage, "checkpoint": checkpoint},
     }
     (target / "config.json").write_text(json.dumps(bundle, indent=2) + "\n")
-    (target / "policy.msgpack").write_bytes(serialization.msgpack_serialize(policy_arrays(params)))
+    (target / "policy.msgpack").write_bytes(serialization.msgpack_serialize(arrays))
     return str(target)
 
 

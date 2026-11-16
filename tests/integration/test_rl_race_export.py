@@ -78,3 +78,16 @@ def test_old_export_rejected_explicitly(tmp_path):
     (tmp_path / "config.json").write_text('{"action_dim": 3}')
     with pytest.raises(ValueError, match="Incompatible export"):
         load_policy(tmp_path)
+
+
+@pytest.mark.parametrize("parent", [False, True])
+def test_export_cannot_delete_source_run(tmp_path, parent):
+    from lsy_drone_racing.control.rl_race.export import export
+
+    run = tmp_path / "run"
+    run.mkdir()
+    checkpoint = run / "important.pkl"
+    checkpoint.write_bytes(b"keep")
+    with pytest.raises(ValueError, match="source run"):
+        export(str(run), destination=str(tmp_path if parent else run), overwrite=True)
+    assert checkpoint.read_bytes() == b"keep"

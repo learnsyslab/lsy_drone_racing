@@ -1,20 +1,16 @@
 # Change log
 
-## Shared-lab grid sweep (2026-11-16)
+## Cleanup (2026-11-16)
 
-- Added sweep_agent.py: one machine label creates isolated W&B agent/SDK logs, cache, staging and download directories under sweeps/wandb-MACHINE. Multiple hosts join the same cloud sweep; each trial uses a separate run ID on the shared filesystem.
-- Replaced the overnight random search with a finite72-trial grid: tied roll/pitch70/75/80, yaw70/80/85, two/three observed gates, anneal0/400M, time cost0.3/0.4. Fixed actor256x3 and critic256x4 to limit cost; wide-network superiority was never established. Start with seed1, then repeat promising settings across seeds.
-- Added tilt_limit_deg alias, machine metadata and cloud checkpoint budget controls. Upload only the final checkpoint plus metadata; skip weights when measured size times declared trial count exceeds50GB. Local checkpoints remain available.
-- Benchmarked larger Brax batches on5090 (9216/10240 OOM;4096 and8192 passed); selected defaults32768 environments/8192 batch; exact settings, measured memory and timings are recorded in GPU_PROFILE.md. Larger batches change PPO updates as well as memory use.
-- Rewrote README in English with single-run, shared multi-host sweep, every training argument, evaluation, export and recording instructions.
-- Removed old rl_race outputs and generated W&B state at the user's request. Preserved source YAML files and deploy_model. No commits, pushes or official leaderboard submissions.
+- Removed the standalone local research scheduler, research summaries, minimum-time solver and their unused tests. Training and search use train.py and W&B sweeps.
+- Shortened README to training, sweeps, evaluation and export instructions; folded the useful GPU memory/batch notes into README.
+- Fixed W&B summary.update to accept a mapping: keyword arguments previously crashed completed trials before artifact upload. Explicit failure exit codes keep W&B run status consistent with process failures.
+- Export rejects overwrite destinations that contain the source run and extracts checkpoint arrays once.
+- Brax rollout/evaluation rounding and training schedules are unchanged.
+- Validation: 30 unit/integration tests passed on CPU; training/evaluation/export CLI help, both sweep YAML configs and export/load of an existing checkpoint passed. Ruff and git diff --check passed.
 
-## Four-action refactor (2026-11-15)
+## Historical model results (2026-11-15)
 
-- Split environment actions, observations, rewards, starts and reference path into env_wrapper; moved actor/critic configuration into network.py.
-- Replaced fixed-yaw three-action policies with four normalized actions [roll,pitch,yaw,thrust], configurable physical bounds, four-action history and export formatv2. Default observation49D; old3D exports rejected.
-- Kept dense pretrain -> race -> optional anneal; critic reset/freeze on reward switch, separate learning rates and fresh-Adam continuation with warmup. No exact optimizer/environment resume or best-checkpoint search.
-- Added final multi-seed first-episode evaluation, separate holdout report prefixes, W&B trial adapter/artifacts and finite local research scheduling. Final ranking scores do not affect training rewards.
-- Fixed evaluation/export to load checkpoint arrays without importing the long-running training module. Verified a fresh staged training process can reach automatic final evaluation.
-- Baseline seed1: approximately2.684B actual steps,3072-episode success90.30%, successful mean3.544s; official local20-run evaluation18/20,3.566s; personal_tools recordings3/3 successful. Portable baseline deployment retained.
-- Local continuation screening completed five configurations. Best validation3.456s/90.23% on1536 episodes using85-degree tilt,time0.4,crash30. Other trials were cancelled after the user paused/ended research; no independent final holdout was completed. Historical outputs were subsequently removed as requested.
+- Four-action baseline, seed 1, 70-degree limits: approximately 2.684B actual steps; 3072-episode success 90.30%, successful mean 3.544 s. Official local evaluation: 18/20, 3.566 s. The baseline deployment remains in deploy_model.
+- Continuation screening: best validation 90.23% / 3.456 s on 1536 episodes with 85-degree tilt, time 0.4 and crash 30. No independent final holdout was completed; original research outputs were previously removed.
+- Later defaults increased batch from 1024 to 8192 after short memory checks. This changes PPO optimization; it was not a demonstrated learning improvement.

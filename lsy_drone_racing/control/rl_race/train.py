@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import sys
 import time
 from dataclasses import asdict
 from datetime import datetime
@@ -193,7 +194,7 @@ def train(
     root = Path(output_root).expanduser().resolve() if output_root else RL_DIR / "outputs"
     run_dir = root / run_name
     run_dir.mkdir(parents=True, exist_ok=False)
-    settings = {key: value for key, value in locals().items() if key not in {"ppo_networks"}}
+    settings = locals().copy()
     settings["policy_layers"], settings["value_layers"] = list(policy_layers), list(value_layers)
     network_config = NetworkConfig(
         tuple(policy_layers), tuple(value_layers), activation, noise_scale
@@ -204,8 +205,6 @@ def train(
 
     wandb_run = wandb.run
     if wandb_project:
-        import wandb
-
         wandb_run = wandb.init(
             project=wandb_project,
             entity=wandb_entity,
@@ -433,7 +432,7 @@ def train(
     finally:
         (run_dir / "stages.json").write_text(json.dumps(stage_log, indent=2) + "\n")
         if wandb_run is not None and wandb_project:
-            wandb_run.finish()
+            wandb_run.finish(exit_code=1 if sys.exc_info()[0] is not None else 0)
     return str(run_dir)
 
 
