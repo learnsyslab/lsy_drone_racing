@@ -17,7 +17,10 @@ class WandbSummary(dict):
 
 
 @pytest.mark.parametrize("budget,uploaded", [(50, True), (1e-12, False)])
-def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, budget, uploaded):
+@pytest.mark.parametrize("grouped", [False, True])
+def test_trial_forwards_config_and_publishes_final_files(
+    monkeypatch, tmp_path, budget, uploaded, grouped
+):
     calls = {}
     checkpoint = tmp_path / "race_final.pkl"
     checkpoint.write_bytes(b"test")
@@ -59,6 +62,11 @@ def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, 
         log_artifact=lambda x: None,
         finish=lambda exit_code: finished.append(exit_code),
     )
+    if grouped:
+        run.config["experiment"] = {
+            "name": "tilt75",
+            "tilt_limit_deg": run.config.pop("tilt_limit_deg"),
+        }
     monkeypatch.setattr(training, "train", train)
     monkeypatch.setattr(sweep.wandb, "init", lambda **kwargs: run)
     monkeypatch.setattr(
@@ -68,6 +76,10 @@ def test_trial_forwards_config_and_publishes_final_files(monkeypatch, tmp_path, 
     )
     sweep.run_trial()
     assert calls == {"seed": 3, "policy_layers": (32, 32), "run_name": "offline-test_s3"}
+    manifest = json.loads((tmp_path / "trial_manifest.json").read_text())
+    assert manifest["experiment"] == ("tilt75" if grouped else None)
+    if grouped:
+        assert run.summary["experiment"] == "tilt75"
     assert logs[0]["final/success_rate"] == 0.8
     assert (str(checkpoint) in attachments) == uploaded
     assert len(attachments) == (4 if uploaded else 3)

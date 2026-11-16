@@ -126,12 +126,12 @@ def train(
     official_start_prob: float = 0.5,
     max_episode_steps: int = 750,
     # Schedule.
-    pretrain_max_steps: int = 500_000_000,
-    pretrain_crash: float | None = None,
-    pretrain_time: float | None = None,
+    pretrain_max_steps: int = 2_000_000_000,
+    pretrain_crash: float | None = 20.0,
+    pretrain_time: float | None = 0.2,
     pretrain_progress: float | None = None,
     pretrain_path_lateral: float | None = None,
-    race_steps: int = 1_000_000_000,
+    race_steps: int = 12_000_000_000,
     switch_success: float = 0.3,
     critic_only_iterations: int = 10,
     start_params: str | None = None,
@@ -143,16 +143,16 @@ def train(
     anneal_steps: int = 0,
     anneal_to: float = 0.1,
     anneal_warmup_iterations: int = 5,
-    race_time: float | None = None,
-    race_crash: float | None = None,
-    race_gate: float | None = None,
-    race_lap: float | None = None,
+    race_time: float | None = 0.3,
+    race_crash: float | None = 20.0,
+    race_gate: float | None = 5.0,
+    race_lap: float | None = 10.0,
     race_lap_bonus: float | None = None,
     race_lap_ref: float | None = None,
     # PPO (Brax): one iteration = num_envs * unroll_length * (batch * minibatches / num_envs).
-    num_envs: int = 32768,
+    num_envs: int = 16384,
     unroll_length: int = 32,
-    batch_size: int = 8192,
+    batch_size: int = 4096,
     num_minibatches: int = 32,
     num_updates_per_batch: int = 4,
     learning_rate: float = 3e-4,
@@ -167,7 +167,7 @@ def train(
     value_layers: tuple[int, ...] = (256, 256, 256, 256),
     activation: str = "swish",
     # Evaluation and logging.
-    eval_every_steps: int = 20_000_000,
+    eval_every_steps: int = 80_000_000,
     num_eval_envs: int = 512,
     final_eval_episodes: int = 1024,
     final_eval_seeds: tuple[int, ...] = (100000, 200000, 300000),
@@ -333,7 +333,10 @@ def train(
                 kwargs["restore_params"] = params
             updates = iteration_updates(num_updates_per_batch, num_minibatches)
             transitions = batch_size * num_minibatches * unroll_length
-            decay = -(-steps // transitions) * updates  # optimizer steps of this stage
+            # Brax rounds each evaluation interval to complete sampling/update iterations.
+            eval_intervals = max(steps // eval_every_steps, 1)
+            iterations_per_eval = -(-steps // (eval_intervals * transitions))
+            decay = eval_intervals * iterations_per_eval * updates
             lr_args: dict[str, Any] | None = None
             if stage == "anneal":
                 # Same reward, critic kept: short warmup (fresh Adam), then decay to anneal_to.
@@ -390,7 +393,7 @@ def train(
                     max_grad_norm=max_grad_norm,
                     normalize_observations=True,
                     network_factory=network_factory,
-                    num_evals=max(steps // eval_every_steps, 1) + 1,
+                    num_evals=eval_intervals + 1,
                     deterministic_eval=True,
                     log_training_metrics=True,
                     seed=seed,
@@ -403,7 +406,15 @@ def train(
                 switched = True
                 params, end_step = latest["params"], latest["step"]
             save_params(params, run_dir / "checkpoints" / f"{stage}_final.pkl")
-            stage_log.append({"stage": stage, "steps": end_step, "switched_on_success": switched})
+            stage_log.append(
+                {
+                    "stage": stage,
+                    "steps": end_step,
+                    "switched_on_success": switched,
+                    "ppo_iterations": end_step // transitions,
+                    "optimizer_updates": (end_step // transitions) * updates,
+                }
+            )
             step_offset += end_step
             if stage == "pretrain" and not switched:
                 print(

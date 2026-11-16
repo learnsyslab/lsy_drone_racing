@@ -1,41 +1,96 @@
+# Conservative fixed recipe; race budget counts include Brax rounding.
+name: conservative-seed-check
 program: lsy_drone_racing/control/rl_race/sweep.py
-method: random
+method: grid
+run_cap: 2
 metric:
   name: final/leaderboard_score
   goal: minimize
 command:
-  - ${env}
-  - pixi
-  - run
-  - -e
-  - gpu
-  - python
-  - -m
-  - lsy_drone_racing.control.rl_race.sweep
+- ${env}
+- pixi
+- run
+- -e
+- gpu
+- python
+- -m
+- lsy_drone_racing.control.rl_race.sweep
 parameters:
-  policy_layers:
-    values: [[256, 256], [256, 256, 256]]
-  value_layers:
-    value: [256, 256, 256, 256]
   seed:
-    values: [1, 2, 3]
+    values:
+    - 1
+    - 2
+  start_stage:
+    value: pretrain
+  start_params:
+    value: null
+  policy_layers:
+    value:
+    - 256
+    - 256
+    - 256
+  value_layers:
+    value:
+    - 256
+    - 256
+    - 256
+    - 256
+  tilt_limit_deg:
+    value: 70
+  yaw_limit_deg:
+    value: 70
+  n_gates:
+    value: 2
   official_start_prob:
-    values: [0.5, 0.7]
+    value: 0.5
   learning_rate:
-    values: [0.0001, 0.0003]
+    value: 0.0003
   policy_lr_after_switch:
     value: 0.0001
+  entropy_cost:
+    value: 0.005
+  num_envs:
+    value: 16384
+  batch_size:
+    value: 4096
+  num_minibatches:
+    value: 32
+  unroll_length:
+    value: 32
+  num_updates_per_batch:
+    value: 4
   pretrain_max_steps:
-    value: 500000000
+    value: 2000000000
   pretrain_time:
     value: 0.2
+  pretrain_crash:
+    value: 20
   race_steps:
-    value: 2500000000
+    value: 12000000000
   race_gate:
     value: 5
   race_lap:
     value: 10
   race_time:
     value: 0.3
+  race_crash:
+    value: 20
   anneal_steps:
     value: 0
+  eval_every_steps:
+    value: 80000000
+  final_eval_episodes:
+    value: 1024
+  final_eval_seeds:
+    value:
+    - 410000
+    - 420000
+    - 430000
+  final_eval_batch_size:
+    value: 256
+  upload_checkpoint:
+    value: true
+  sweep_trial_count:
+    value: 2
+  cloud_checkpoint_budget_gb:
+    value: 50

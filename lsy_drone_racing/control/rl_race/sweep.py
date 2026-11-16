@@ -26,6 +26,11 @@ def run_trial() -> None:
     try:
         run.summary["machine"] = os.environ.get("RL_RACE_MACHINE", "unlabelled")
         args = dict(run.config)
+        experiment = dict(args.pop("experiment", {}))
+        experiment_name = experiment.pop("name", None)
+        args.update(experiment)
+        if experiment_name:
+            run.summary["experiment"] = experiment_name
         tilt = args.pop("tilt_limit_deg", None)
         if tilt is not None:
             if "roll_limit_deg" in args or "pitch_limit_deg" in args:
@@ -50,6 +55,7 @@ def run_trial() -> None:
         output = Path(train(**args))
         manifest = dict(
             sweep_id=sweep_id,
+            experiment=experiment_name,
             run_id=run.id,
             seed=args.get("seed", 0),
             machine=os.environ.get("RL_RACE_MACHINE", "unlabelled"),

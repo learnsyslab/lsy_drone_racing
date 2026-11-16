@@ -1,0 +1,157 @@
+# One cloud sweep; each experiment below is one grid point.
+# YAML merges (<<) expand before W&B receives the configuration.
+# Fixed four-action architecture; the original-PPO control preserves the current 4D interface.
+name: L2_sweep
+program: lsy_drone_racing/control/rl_race/sweep.py
+method: grid
+run_cap: 25
+metric:
+  name: final/leaderboard_score
+  goal: minimize
+command:
+  - ${env}
+  - pixi
+  - run
+  - -e
+  - gpu
+  - python
+  - -m
+  - lsy_drone_racing.control.rl_race.sweep
+parameters:
+  experiment:
+    values:
+      - &baseline
+        name: moderate_70_70
+        num_envs: 16384
+        batch_size: 4096
+        pretrain_max_steps: 2000000000
+        eval_every_steps: 80000000
+        race_steps: 12000000000
+        tilt_limit_deg: 70
+        yaw_limit_deg: 70
+        n_gates: 2
+        anneal_steps: 0
+        seed: 1
+      - <<: *baseline
+        name: original_ppo_70_70
+        num_envs: 8192
+        batch_size: 1024
+        pretrain_max_steps: 500000000
+        eval_every_steps: 20000000
+        race_steps: 2500000000
+      - <<: *baseline
+        name: tilt80_yaw80
+        tilt_limit_deg: 80
+        yaw_limit_deg: 80
+      - <<: *baseline
+        name: gates3_70_70
+        n_gates: 3
+      - <<: *baseline
+        name: anneal_70_70
+        anneal_steps: 1600000000
+      - <<: *baseline
+        name: tilt75_yaw75
+        tilt_limit_deg: 75
+        yaw_limit_deg: 75
+      - <<: *baseline
+        name: tilt85_yaw85
+        tilt_limit_deg: 85
+        yaw_limit_deg: 85
+      - <<: *baseline
+        name: gates3_anneal_80_80
+        tilt_limit_deg: 80
+        yaw_limit_deg: 80
+        n_gates: 3
+        anneal_steps: 1600000000
+      - <<: *baseline
+        name: budget2500_70_70
+        race_steps: 10000000000
+      - <<: *baseline
+        name: budget3500_70_70
+        race_steps: 14000000000
+      - <<: *baseline
+        name: tilt70_yaw75
+        tilt_limit_deg: 70
+        yaw_limit_deg: 75
+      - <<: *baseline
+        name: tilt70_yaw80
+        tilt_limit_deg: 70
+        yaw_limit_deg: 80
+      - <<: *baseline
+        name: tilt70_yaw85
+        tilt_limit_deg: 70
+        yaw_limit_deg: 85
+      - <<: *baseline
+        name: tilt75_yaw70
+        tilt_limit_deg: 75
+        yaw_limit_deg: 70
+      - <<: *baseline
+        name: tilt75_yaw80
+        tilt_limit_deg: 75
+        yaw_limit_deg: 80
+      - <<: *baseline
+        name: tilt75_yaw85
+        tilt_limit_deg: 75
+        yaw_limit_deg: 85
+      - <<: *baseline
+        name: tilt80_yaw70
+        tilt_limit_deg: 80
+        yaw_limit_deg: 70
+      - <<: *baseline
+        name: tilt80_yaw75
+        tilt_limit_deg: 80
+        yaw_limit_deg: 75
+      - <<: *baseline
+        name: tilt80_yaw85
+        tilt_limit_deg: 80
+        yaw_limit_deg: 85
+      - <<: *baseline
+        name: tilt85_yaw70
+        tilt_limit_deg: 85
+        yaw_limit_deg: 70
+      - <<: *baseline
+        name: tilt85_yaw75
+        tilt_limit_deg: 85
+        yaw_limit_deg: 75
+      - <<: *baseline
+        name: tilt85_yaw80
+        tilt_limit_deg: 85
+        yaw_limit_deg: 80
+      - <<: *baseline
+        name: gates3_80_80
+        tilt_limit_deg: 80
+        yaw_limit_deg: 80
+        n_gates: 3
+      - <<: *baseline
+        name: anneal_80_80
+        tilt_limit_deg: 80
+        yaw_limit_deg: 80
+        anneal_steps: 1600000000
+      - <<: *baseline
+        name: repeat_seed2_70_70
+        seed: 2
+  start_stage: {value: pretrain}
+  start_params: {value: null}
+  policy_layers: {value: [256, 256, 256]}
+  value_layers: {value: [256, 256, 256, 256]}
+  activation: {value: swish}
+  num_minibatches: {value: 32}
+  unroll_length: {value: 32}
+  num_updates_per_batch: {value: 4}
+  official_start_prob: {value: 0.5}
+  learning_rate: {value: 0.0003}
+  policy_lr_after_switch: {value: 0.0001}
+  entropy_cost: {value: 0.005}
+  pretrain_time: {value: 0.2}
+  pretrain_crash: {value: 20}
+  race_gate: {value: 5}
+  race_lap: {value: 10}
+  race_time: {value: 0.3}
+  race_crash: {value: 20}
+  anneal_to: {value: 0.1}
+  final_eval_episodes: {value: 1024}
+  final_eval_seeds: {value: [410000, 420000, 430000]}
+  final_eval_batch_size: {value: 256}
+  upload_checkpoint: {value: true}
+  sweep_trial_count: {value: 25}
+  cloud_checkpoint_budget_gb: {value: 50}
