@@ -1,5 +1,10 @@
 # Change log
 
+## Unified sweep entrypoint (2026-11-16)
+
+- Merged the machine-isolated agent launcher into sweep.py and removed sweep_agent.py. Use --machine with --create or --sweep; no arguments still execute one assigned trial, preserving existing cloud YAML commands.
+- Kept count/hour limits, directory isolation and trial behavior; training imports are deferred until a trial starts. Updated usage and added launcher/dispatch regression tests.
+
 ## Cleanup (2026-11-16)
 
 - Removed the standalone local research scheduler, research summaries, minimum-time solver and their unused tests. Training and search use train.py and W&B sweeps.

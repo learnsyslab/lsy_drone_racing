@@ -36,14 +36,14 @@ Create once:
 
 ```bash
 pixi run -e gpu wandb login
-pixi run -e gpu python lsy_drone_racing/control/rl_race/sweep_agent.py \
+pixi run -e gpu python -m lsy_drone_racing.control.rl_race.sweep \
   --machine 9-2-3 --create lsy_drone_racing/control/rl_race/sweeps/overnight.yaml
 ```
 
 Join the returned sweep ID from each machine, with a unique machine label:
 
 ```bash
-pixi run -e gpu python lsy_drone_racing/control/rl_race/sweep_agent.py \
+pixi run -e gpu python -m lsy_drone_racing.control.rl_race.sweep \
   --machine 9-2-3 --sweep ENTITY/lsy-drone-racing/SWEEP_ID
 ```
 
@@ -92,7 +92,7 @@ To deploy, set the destination to `lsy_drone_racing/control/rl_race/deploy_model
 `env_wrapper/` adapts the simulator and defines observations, actions, rewards and starts.
 `network.py` defines the actor/critic; `optim.py` provides separate learning rates.
 `brax_ppo_train.py` is the pinned Brax trainer with the optimizer override required by
-`train.py`. `sweep.py` adapts W&B configs; `sweep_agent.py` launches machine-isolated agents.
+`train.py`. `sweep.py` launches machine-isolated agents with `--create`/`--sweep`; without arguments it executes one agent-assigned trial. Existing cloud sweep commands remain compatible.
 
 ```bash
 SCIPY_ARRAY_API=1 JAX_PLATFORMS=cpu WANDB_MODE=disabled \
