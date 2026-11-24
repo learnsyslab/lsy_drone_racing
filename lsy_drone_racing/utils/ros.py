@@ -61,6 +61,7 @@ def drone_poses(drone_names: list[str]) -> tuple[NDArray, NDArray]:
     """
     drone_pos = np.zeros((len(drone_names), 3), dtype=np.float32)
     drone_quat = np.zeros((len(drone_names), 4), dtype=np.float32)
+    ros_connector = None
     try:
         ros_connector = ROSConnector(estimator_names=drone_names, timeout=10.0)
         for i, drone_name in enumerate(drone_names):
@@ -72,5 +73,6 @@ def drone_poses(drone_names: list[str]) -> tuple[NDArray, NDArray]:
             "in Vicon and started the estimator node?"
         ) from e
     finally:
-        ros_connector.close()
+        if ros_connector is not None:
+            ros_connector.close()
     return drone_pos, drone_quat

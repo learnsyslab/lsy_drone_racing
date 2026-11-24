@@ -8,11 +8,14 @@ from typing import TYPE_CHECKING
 import jax
 import jax.numpy as jp
 import numpy as np
+from crazyflow.control import load_params as load_control_params
+from crazyflow.dynamics import load_params as load_dynamics_params
 from jax.numpy import vectorize
 from ml_collections import ConfigDict
 from scipy.spatial.transform import Rotation as R
 
 if TYPE_CHECKING:
+    from crazyflow.dynamics import Dynamics
     from jax import Array
 
 
@@ -78,6 +81,17 @@ def load_gate_order(track: ConfigDict, n_gates: int) -> tuple[np.ndarray, np.nda
     gate_sequence = np.abs(gate_order) - 1
     gate_sequence_direction = np.sign(gate_order)
     return gate_sequence, gate_sequence_direction
+
+
+def load_drone_params(dynamics: Dynamics, drone_model: str) -> dict:
+    """Load a drone's dynamics parameters together with its firmware PWM limits.
+
+    The PWM limits are firmware control parameters, separate from the dynamics parameters, and
+    are needed to convert a collective thrust command into PWM.
+    """
+    params = load_dynamics_params(dynamics, drone_model)
+    control_params = load_control_params("mellinger", drone_model)["core"]
+    return params | {"pwm_min": control_params["pwm_min"], "pwm_max": control_params["pwm_max"]}
 
 
 @jax.jit
