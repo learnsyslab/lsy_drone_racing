@@ -31,6 +31,7 @@ dependencies = [
     "packaging >= 24.0",
     "crazyflow >= 0.4",
     "mujoco>=3.3.0,<3.11.0", # unlock the mujoco version when gymnasium side is repaired
+    "mujoco-mjx>=3.3.0,<3.11.0", # Must match mujoco. mjx 4 depends on mujoco-core instead
     "jax >= 0.7",
     "warp-lang",
 ]
@@ -40,7 +41,7 @@ dependencies = [
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
-    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@d87b796",
+    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@6a1f0e7",
     "drone-estimators>=0.1.0",
 ]
 # option[rl]: train rl policy
@@ -63,6 +64,7 @@ markers = ["unit", "integration"]
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
 
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
@@ -105,7 +107,9 @@ evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the con
 ### environments
 [tool.pixi.environments]
 default = { features = ["sim"], solve-group = "default" }
-deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
+deploy = { features = ["sim", "gpu", "kilted", "deploy"], solve-group = "deploy" }
+# crazyflow-itl first, so its activation env (Zenoh port) overrides the one from kilted
+crazyflow-itl = { features = ["crazyflow-itl", "sim", "gpu", "kilted", "deploy"], solve-group = "deploy" }
 gpu = { features = ["sim", "gpu"], solve-group = "default" }
 tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
 gpu-tests = { features = ["sim", "rl", "gpu", "tests"], solve-group = "default" }
@@ -140,6 +144,10 @@ ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/e
 RUST_LOG = "zenoh=error"
 
 ## feature [deploy]
+[tool.pixi.feature.deploy.activation.env]
+# Build cflib2 against crazyflie-link-rs with UDP support, to reach simulated drones
+MATURIN_PEP517_ARGS = "--config 'patch.crates-io.crazyflie-link.git=\"https://github.com/bitcraze/crazyflie-link-rs\"' --config 'patch.crates-io.crazyflie-link.rev=\"2f59526adcfca367f75ede550668e12d4b4120ac\"'"
+
 [tool.pixi.feature.deploy.tasks]
 mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
 estimator = { cmd = "python -m drone_estimators.ros.node", description = "Start the drone state estimator" }
@@ -148,6 +156,26 @@ estimator = { cmd = "python -m drone_estimators.ros.node", description = "Start 
 packaging = ">=24,<26"  # Necessary for cflib2
 maturin = ">=1.13.3,<2"
 rust = ">=1.95.0,<1.96"
+
+## feature [crazyflow-itl]: run the deployment against drones simulated by crazyflow_itl
+[tool.pixi.feature.crazyflow-itl]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.crazyflow-itl.activation.env]
+# Scout on a different multicast port than the lab (default 224.0.0.224:7446) and only accept
+# connections on localhost, so the simulated stack stays separate from nodes on other machines.
+# Overrides kilted's value because crazyflow-itl comes first in the crazyflow-itl environment
+ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=true;scouting/multicast/address="224.0.0.224:7448"'
+
+[tool.pixi.feature.crazyflow-itl.tasks]
+itl-sim = { cmd = "python scripts/crazyflow_itl_sim.py", description = "Simulate the drones of a deploy config" }
+
+[tool.pixi.feature.crazyflow-itl.dependencies]
+cffirmware = { git = "https://github.com/learnsyslab/crazyflow_itl.git", rev = "7c5c00fc1a1ce56d0e68d2e8199802cd8c4b8204", subdirectory = "recipes/cffirmware" }
+ros-kilted-simulation-interfaces = "*"
+
+[tool.pixi.feature.crazyflow-itl.pypi-dependencies]
+crazyflow_itl = { git = "https://github.com/learnsyslab/crazyflow_itl.git", rev = "7c5c00fc1a1ce56d0e68d2e8199802cd8c4b8204" }
 
 ## feature [tests]
 [tool.pixi.feature.tests.tasks]
