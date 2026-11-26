@@ -56,7 +56,7 @@ find = {}
 lsy_drone_racing = ["envs/assets/*.xml", "envs/assets/*.png"]
 
 [tool.pytest.ini_options]
-markers = ["unit", "integration"]
+markers = ["unit", "integration", "deploy_itl"]
 
 ########################
 # Pixi Sessions
@@ -169,6 +169,7 @@ ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast
 
 [tool.pixi.feature.crazyflow-itl.tasks]
 itl-sim = { cmd = "python scripts/crazyflow_itl_sim.py", description = "Simulate the drones of a deploy config" }
+itl-tests = { cmd = "python -m pytest -v -rxX tests/deploy_itl", env = { PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1" }, description = "Test the deployment against crazyflow_itl simulated drones" }
 
 [tool.pixi.feature.crazyflow-itl.dependencies]
 cffirmware = { git = "https://github.com/learnsyslab/crazyflow_itl.git", rev = "7c5c00fc1a1ce56d0e68d2e8199802cd8c4b8204", subdirectory = "recipes/cffirmware" }
