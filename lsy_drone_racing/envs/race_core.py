@@ -692,6 +692,8 @@ class RaceCoreEnv:
             gate.quat = R.from_euler("xyz", track.gates[i]["rpy"]).as_quat(scalar_first=True)
             gate.mocap = True  # Make mocap to modify the position of static bodies during sim
             # A gate stacked onto a lower gate is mounted on that gate's stand
+            if track.randomize:  # Level 3 tracks should not have stands removed
+                continue
             lower = gates_pos[:, 2] < gates_pos[i, 2]
             near = np.linalg.norm(gates_pos[:, :2] - gates_pos[i, :2], axis=-1) <= 0.05  # 5cm
             parallel = np.abs(np.cos(gates_yaw - gates_yaw[i])) >= np.cos(np.deg2rad(5))  # 5 deg
