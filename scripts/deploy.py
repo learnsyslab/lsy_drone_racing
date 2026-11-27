@@ -50,6 +50,7 @@ def main(config: str = "level2.toml", controller: str | None = None, render: boo
         dynamics=config.sim.dynamics,
         sensor_range=config.env.sensor_range,
         control_mode=config.env.control_mode,
+        crazyflow_itl=config.deploy.get("crazyflow_itl", False),
     )
     viewer = None
     try:

@@ -403,11 +403,11 @@ class Crazyflie:
         )
 
     async def _arm(self) -> None:
-        await self.cf.platform().send_arming_request(do_arm=True)
+        await self.cf.supervisor().send_arming_request(do_arm=True)
         await asyncio.sleep(0.8)
 
     async def _emergency_stop(self) -> None:
-        await self.cf.localization().emergency().send_emergency_stop()
+        await self.cf.supervisor().send_emergency_stop()
 
     async def _change_commander_level(self, level: Literal["low", "high"]) -> None:
         if self._commander_level == level:

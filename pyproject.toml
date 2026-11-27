@@ -31,6 +31,7 @@ dependencies = [
     "packaging >= 24.0",
     "crazyflow >= 0.4",
     "mujoco>=3.3.0,<3.11.0", # unlock the mujoco version when gymnasium side is repaired
+    "mujoco-mjx>=3.3.0,<3.11.0", # Must match mujoco. mjx 4 depends on mujoco-core instead
     "jax >= 0.7",
     "warp-lang",
 ]
@@ -40,7 +41,7 @@ dependencies = [
 gpu = ["jax[cuda12]"]
 # option[deploy]: deploy to real drones
 deploy = [
-    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@d87b796",
+    "cflib2 @ git+https://github.com/bitcraze/crazyflie-lib-python-v2.git@6a1f0e7",
     "drone-estimators>=0.1.0",
 ]
 # option[rl]: train rl policy
@@ -55,7 +56,7 @@ find = {}
 lsy_drone_racing = ["envs/assets/*.xml", "envs/assets/*.png"]
 
 [tool.pytest.ini_options]
-markers = ["unit", "integration"]
+markers = ["unit", "integration", "deploy_itl"]
 
 ########################
 # Pixi Sessions
@@ -63,6 +64,7 @@ markers = ["unit", "integration"]
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
 
 [tool.pixi.dependencies]
 python = ">=3.11.12,<3.14"
@@ -105,7 +107,9 @@ evaluate = { cmd = "python scripts/evaluate.py", description = "Evaluate the con
 ### environments
 [tool.pixi.environments]
 default = { features = ["sim"], solve-group = "default" }
-deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
+deploy = { features = ["sim", "gpu", "kilted", "deploy"], solve-group = "deploy" }
+# crazyflow-itl first, so its activation env (Zenoh port) overrides the one from kilted
+crazyflow-itl = { features = ["crazyflow-itl", "sim", "gpu", "kilted", "deploy"], solve-group = "deploy" }
 gpu = { features = ["sim", "gpu"], solve-group = "default" }
 tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
 gpu-tests = { features = ["sim", "rl", "gpu", "tests"], solve-group = "default" }
@@ -133,21 +137,50 @@ ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 scripts = ["tools/setup_mocap.sh"]
 
 [tool.pixi.feature.kilted.activation.env]
-# Use Zenoh as ROS 2 middleware with multicast discovery across machines
+# Use Zenoh as ROS 2 middleware with multicast discovery across machines. Nodes also connect to the
+# localhost router (deploy task local-router), which serves the machine-local mocap and estimator
 RMW_IMPLEMENTATION = "rmw_zenoh_cpp"
 ZENOH_ROUTER_CHECK_ATTEMPTS = "-1"  # Do not check for a router when a node starts
-ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
+ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
 RUST_LOG = "zenoh=error"
 
 ## feature [deploy]
+[tool.pixi.feature.deploy.activation.env]
+# Build cflib2 against crazyflie-link-rs with UDP support, to reach simulated drones
+MATURIN_PEP517_ARGS = "--config 'patch.crates-io.crazyflie-link.git=\"https://github.com/bitcraze/crazyflie-link-rs\"' --config 'patch.crates-io.crazyflie-link.rev=\"2f59526adcfca367f75ede550668e12d4b4120ac\"'"
+
 [tool.pixi.feature.deploy.tasks]
-mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
-estimator = { cmd = "python -m drone_estimators.ros.node", description = "Start the drone state estimator" }
+# Mocap and estimator only talk to the localhost router, so their topics never leave the machine.
+# Peers do not forward data, so the deploy nodes on the multicast mesh do not pass them on either
+local-router = { cmd = "ros2 run rmw_zenoh_cpp rmw_zenohd", env = { ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/127.0.0.1:7447"];scouting/multicast/enabled=false' }, description = "Start the localhost Zenoh router for mocap and the estimator" }
+mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", env = { ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=false' }, description = "Launch the motion capture tracking node (localhost only)" }
+estimator = { cmd = "python -m drone_estimators.ros.node", env = { ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=false' }, description = "Start the drone state estimator (localhost only)" }
 
 [tool.pixi.feature.deploy.dependencies]
 packaging = ">=24,<26"  # Necessary for cflib2
 maturin = ">=1.13.3,<2"
 rust = ">=1.95.0,<1.96"
+
+## feature [crazyflow-itl]: run the deployment against drones simulated by crazyflow_itl
+[tool.pixi.feature.crazyflow-itl]
+platforms = ["linux-64"]
+
+[tool.pixi.feature.crazyflow-itl.activation.env]
+# Scout on a different multicast port than the lab (default 224.0.0.224:7446) and only accept
+# connections on localhost, so the simulated stack stays separate from nodes on other machines.
+# Overrides kilted's value because crazyflow-itl comes first in the crazyflow-itl environment
+ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=true;scouting/multicast/address="224.0.0.224:7448"'
+
+[tool.pixi.feature.crazyflow-itl.tasks]
+itl-sim = { cmd = "python scripts/crazyflow_itl_sim.py", description = "Simulate the drones of a deploy config" }
+itl-tests = { cmd = "python -m pytest -v -rxX tests/deploy_itl", env = { PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1" }, description = "Test the deployment against crazyflow_itl simulated drones" }
+
+[tool.pixi.feature.crazyflow-itl.dependencies]
+cffirmware = { git = "https://github.com/learnsyslab/crazyflow_itl.git", rev = "7c5c00fc1a1ce56d0e68d2e8199802cd8c4b8204", subdirectory = "recipes/cffirmware" }
+ros-kilted-simulation-interfaces = "*"
+
+[tool.pixi.feature.crazyflow-itl.pypi-dependencies]
+crazyflow_itl = { git = "https://github.com/learnsyslab/crazyflow_itl.git", rev = "7c5c00fc1a1ce56d0e68d2e8199802cd8c4b8204" }
 
 ## feature [tests]
 [tool.pixi.feature.tests.tasks]
