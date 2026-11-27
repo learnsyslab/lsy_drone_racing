@@ -63,6 +63,8 @@ nav:
       - utils/index.md
       - utils.checks: utils/checks.md
       - utils.utils: utils/utils.md
+  - Multi Agent:
+    - multi_agent/index.md
 
 plugins:
   - search

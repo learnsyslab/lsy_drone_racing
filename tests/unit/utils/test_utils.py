@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation as R
 
 from lsy_drone_racing.control.controller import Controller
 from lsy_drone_racing.envs.utils import gate_passed, load_gate_order
-from lsy_drone_racing.utils import load_config, load_controller
+from lsy_drone_racing.utils import extract_config_for_rank, load_config, load_controller
 
 
 @pytest.mark.unit
@@ -20,6 +20,16 @@ def test_load_config():
 def test_load_controller():
     c = load_controller(Path(__file__).parents[3] / "lsy_drone_racing/control/state_controller.py")
     assert issubclass(c, Controller), f"Controller {c} is not a subclass of `Controller`"
+
+
+@pytest.mark.unit
+def test_extract_config_for_rank():
+    config = load_config(Path(__file__).parents[3] / "config/multi_level0.toml")
+    config.env.kwargs[0]["control_mode"] = "state"
+    config.env.kwargs[1]["control_mode"] = "attitude"
+    assert extract_config_for_rank(config, 0).env.control_mode == "state"
+    assert extract_config_for_rank(config, 1).env.control_mode == "attitude"
+    assert "control_mode" not in config.env, "The multi-drone config was modified"
 
 
 @pytest.mark.unit
