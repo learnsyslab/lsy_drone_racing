@@ -137,10 +137,11 @@ ros2-distro-mutex = "0.12.*"  # Pinned for motion_capture_tracking
 scripts = ["tools/setup_mocap.sh"]
 
 [tool.pixi.feature.kilted.activation.env]
-# Use Zenoh as ROS 2 middleware with multicast discovery across machines
+# Use Zenoh as ROS 2 middleware with multicast discovery across machines. Nodes also connect to the
+# localhost router (deploy task local-router), which serves the machine-local mocap and estimator
 RMW_IMPLEMENTATION = "rmw_zenoh_cpp"
 ZENOH_ROUTER_CHECK_ATTEMPTS = "-1"  # Do not check for a router when a node starts
-ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
+ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/0.0.0.0:0"];scouting/multicast/enabled=true'
 RUST_LOG = "zenoh=error"
 
 ## feature [deploy]
@@ -149,8 +150,11 @@ RUST_LOG = "zenoh=error"
 MATURIN_PEP517_ARGS = "--config 'patch.crates-io.crazyflie-link.git=\"https://github.com/bitcraze/crazyflie-link-rs\"' --config 'patch.crates-io.crazyflie-link.rev=\"2f59526adcfca367f75ede550668e12d4b4120ac\"'"
 
 [tool.pixi.feature.deploy.tasks]
-mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", description = "Launch the motion capture tracking node" }
-estimator = { cmd = "python -m drone_estimators.ros.node", description = "Start the drone state estimator" }
+# Mocap and estimator only talk to the localhost router, so their topics never leave the machine.
+# Peers do not forward data, so the deploy nodes on the multicast mesh do not pass them on either
+local-router = { cmd = "ros2 run rmw_zenoh_cpp rmw_zenohd", env = { ZENOH_CONFIG_OVERRIDE = 'listen/endpoints=["tcp/127.0.0.1:7447"];scouting/multicast/enabled=false' }, description = "Start the localhost Zenoh router for mocap and the estimator" }
+mocap = { cmd = "ros2 launch motion_capture_tracking launch.py", env = { ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=false' }, description = "Launch the motion capture tracking node (localhost only)" }
+estimator = { cmd = "python -m drone_estimators.ros.node", env = { ZENOH_CONFIG_OVERRIDE = 'connect/endpoints=["tcp/127.0.0.1:7447"];listen/endpoints=["tcp/127.0.0.1:0"];scouting/multicast/enabled=false' }, description = "Start the drone state estimator (localhost only)" }
 
 [tool.pixi.feature.deploy.dependencies]
 packaging = ">=24,<26"  # Necessary for cflib2
